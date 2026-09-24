@@ -1394,7 +1394,12 @@
                 `${title(m.type)} · ${m.cls === 'status' ? 'Status' : `Pow ${m.power}`}` +
                 `${m.pp === Infinity ? '' : ` · PP ${m.pp}/${m.maxPp}`}`),
             );
-            if (eff !== '' && eff !== 1) btn.append(el('span', 'move-hint', eff > 1 ? 'Super effective' : eff === 0 ? 'No effect' : 'Not very effective'));
+            if (eff !== '' && eff !== 1) {
+              // Green for super effective, red for not very effective, dark red for no effect.
+              const [key, text] = eff > 1 ? ['good', 'Super effective'] : eff === 0 ? ['none', 'No effect'] : ['bad', 'Not very effective'];
+              btn.classList.add(`eff-${key}`);
+              btn.append(el('span', `move-hint hint-${key}`, text));
+            }
           } else if (it.kind === 'bag') {
             btn.classList.add('move', 'move-bag', 'move-extra');
             btn.disabled = !count(...ITEM_KEYS);

@@ -281,7 +281,7 @@
   // PokéAPI's cries are .ogg, which some Safari versions can't play, so those get Showdown's .mp3.
   const CRY_OGG = 'https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest';
   const CRY_MP3 = 'https://play.pokemonshowdown.com/audio/cries';
-  const CRY_VOLUME = 0.5;
+  const CRY_VOLUME = 0.15;
   const canOgg = !!document.createElement('audio').canPlayType('audio/ogg; codecs="vorbis"');
 
   /** A Pokémon's cry, by species id and name. `faint` plays it slower and lower, like the games.
@@ -308,8 +308,8 @@
       const t = ctx.currentTime;
       g.cancelScheduledValues(t);
       g.setValueAtTime(g.value, t);
-      g.linearRampToValueAtTime(0.3, t + 0.08);
-      g.setValueAtTime(0.3, t + 1.4);
+      g.linearRampToValueAtTime(0.6, t + 0.08);
+      g.setValueAtTime(0.6, t + 1.4);
       g.linearRampToValueAtTime(1, t + 2);
     }
   }
