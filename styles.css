@@ -341,7 +341,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .story-menu-box p { margin: 0 0 4px; font-size: .85rem; }
 .btn-ghost { background: transparent; color: var(--text); border: 2px solid var(--border); }
 .stage {
-  position: relative; overflow: hidden; aspect-ratio: 16 / 9; min-height: 220px;
+  position: relative; overflow: hidden; width: 100%; aspect-ratio: 16 / 9; min-height: 220px;
   border-radius: var(--radius) var(--radius) 0 0; border: 3px solid #1c1e21; border-bottom: none;
   background: #cfd8e3;
 }
