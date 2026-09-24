@@ -26,4 +26,43 @@ function whoIsAsking(headers) {
   return { owner };
 }
 
-module.exports = { INVITE_HASH, SAVE_ID, MAX_BODY, MAX_SAVES, playerKey, whoIsAsking };
+// ---------- Puzzle high scores ----------
+// Each player keeps a best per puzzle: fewest moves and fastest time, tracked separately.
+// Scores are shared: everyone who got past the invite questions sees the top names.
+const PUZZLE_ID = /^[a-z0-9-]{1,20}:[a-zA-Z0-9-]{1,40}$/;   // "<chapter id>:<scene id>", e.g. "ch4:rockfall"
+const TOP = 5;
+
+/** Checks a posted score. Returns { moves, ms } or { error }. A move takes at least ~90 ms to play. */
+function checkScore(body) {
+  const moves = body && body.moves;
+  const ms = body && body.ms;
+  if (!Number.isInteger(moves) || moves < 1 || moves > 5000) return { error: 'Bad move count' };
+  if (!Number.isInteger(ms) || ms < moves * 80 || ms > 60 * 60 * 1000) return { error: 'Bad time' };
+  return { moves, ms };
+}
+
+/** Keeps the better of each. Returns { best, newMoves, newTime }. */
+function mergeBest(old, score) {
+  const newMoves = !old || score.moves < old.moves;
+  const newTime = !old || score.ms < old.ms;
+  const best = {
+    moves: newMoves ? score.moves : old.moves,
+    ms: newTime ? score.ms : old.ms,
+    at: new Date().toISOString(),
+  };
+  return { best, newMoves, newTime };
+}
+
+/** { owner: best } -> the top names for moves and time, plus the asker's own best. */
+function leaderboard(all, owner) {
+  const rows = Object.entries(all).map(([name, b]) => ({ name, moves: b.moves, ms: b.ms }));
+  return {
+    moves: [...rows].sort((a, b) => a.moves - b.moves || a.ms - b.ms).slice(0, TOP).map(({ name, moves }) => ({ name, moves })),
+    time: [...rows].sort((a, b) => a.ms - b.ms || a.moves - b.moves).slice(0, TOP).map(({ name, ms }) => ({ name, ms })),
+    mine: all[owner] ? { moves: all[owner].moves, ms: all[owner].ms } : null,
+  };
+}
+
+module.exports = {
+  INVITE_HASH, SAVE_ID, MAX_BODY, MAX_SAVES, PUZZLE_ID, playerKey, whoIsAsking, checkScore, mergeBest, leaderboard,
+};

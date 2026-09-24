@@ -26,13 +26,18 @@ from `file://` will not work.
 | `story.html` | Story page shell: title screen, stage (picture), dialogue box, choices, battle layer |
 | `story.js` | Story engine: scene runner, dialogue/typewriter, prompts, save/load, turn-based battle |
 | `music.js` | Story music: chiptune loops per backdrop and battle kind, plus jingles, synthesised with Web Audio (`window.StoryMusic`) |
+| `puzzles.js` | Grid puzzle core (`window.StoryPuzzles`): board, d-pad/keys/swipes, reset/skip, a BFS `solve()` that runs in Node |
+| `puzzle-<kind>.js` | One puzzle kind each (rules only, no DOM): ice slide, boulder push, colour switch gates, memory path, copy the picture |
+| `puzzles.html` | Dev page: plays every puzzle scene from `chapters.js` directly (no invite or save) |
 | `chapters.js` | Story content only: cast, looks and chapters as scene graphs (`window.STORY_CHAPTERS`) |
 | `STORY_PLAN.md` | Plan for the 10-chapter story: shards, team of 4-6, switching, chapter outlines, build order. Read it before story work |
 | `server.js` | Zero-dependency static file server (MIME map, path-traversal guard) plus the `/api/saves` JSON save database, for local dev |
 | `api/saves.js` | Same save API as a Vercel function, stored in Upstash Redis via its REST API (plain `fetch`) |
 | `api/_shared.js` | Invite hash, player-name normalising and limits, used by both save backends |
+| `api/scores.js` | Puzzle high scores as a Vercel function (Redis hash `scores:<ch>:<scene>`, a field per player) |
+| `api/_redis.js` | Upstash REST helper (`redis`, `hgetallJson`, `send`) shared by the two Vercel functions |
 | `vercel.json` | Rewrites `/api/saves/:id` to `/api/saves?id=:id` |
-| `data/saves.json` | Local story save slots (`{ players: { <name>: { <id>: save } } }`), created on first save. Gitignored, not served, safe to delete |
+| `data/saves.json` | Local story save slots (`{ players: { <name>: { <id>: save } } }`) and puzzle scores (`scores: { <ch>:<scene>: { <name>: { moves, ms } } }`), created on first save. Gitignored, not served, safe to delete |
 
 ## How `app.js` works
 
@@ -157,6 +162,26 @@ from `file://` will not work.
   with a "trained hard at camp" line. Placeholders `{team}`
   ("Ember, Sparky and Rocky") and `{lead}`; panel `mon: 'lead'`. The in-game
   menu has a Team screen (sprite, name, level, types, Make leader, Rename).
+- **Puzzles**: a `puzzle` prompt holds `rooms` (`[{ puzzle: kind, grid, text? }]`, played in order,
+  "Room 2 of 3") and an optional `time` in seconds for all rooms together (a pill on the board; running
+  out goes back to room 1 with a full clock). Kinds: ice, boulder, switch, memory, picture; each
+  `puzzle-<kind>.js` lists its grid characters at the top. The board covers the stage; the d-pad goes
+  in the choices (`.choices-puzzle`), plus arrow keys/WASD and swipes. You can't lose: "Start again"
+  restarts the room, `hint` after 3 tries (resets or time-ups), Skip after 5 (no reward). Solving
+  applies the prompt's `set`/`give` and plays `after`; `flags['<ch>:<scene>']` is 'solved' or
+  'skipped'. Placed at ch4 `rockfall`, ch5 `icePond` and ch7 `gateYard`. The kind contract
+  (parse/move/solved/view/key, `flash` frames for patterns to remember, `view().picture` for a goal
+  shown beside the board) is in `puzzles.js`'s header; `StoryPuzzles.run` plays a whole puzzle.
+  CSS per kind in its `/* Puzzle: <kind> */` block. Check grids in Node: `globalThis.window =
+  globalThis`, require `puzzles.js` and the kinds, then `StoryPuzzles.solve(kind, rows)` (-1 =
+  unsolvable). Play them directly on `puzzles.html`. Grids at most 10x7.
+- **Puzzle scores**: each solve posts `{ puzzle: '<ch>:<scene>', moves, ms }` to `/api/scores`
+  (both backends; checks in `api/_shared.js`: `checkScore`, `mergeBest`, `leaderboard`). Moves add
+  up each room's winning try; time is clock time since room 1 last started fresh (restarts cost
+  time, not moves). Each player keeps a best for each, separately. `showScores` puts a records card on
+  the stage (`#stage-scores`: this try, "New best!", top 5 by moves and by time, shared by every
+  invited player), then "Keep going" / "Try again for a better score" (the reward and `after` only
+  come the first time). Without the API, bests stay in `localStorage` `pokefightadex-scores`.
 - **Deploy**: Vercel (static files + `api/saves.js`), Upstash Redis added from
   the Vercel Storage tab (`UPSTASH_REDIS_REST_*` or `KV_REST_API_*` env vars).
   GitHub Pages still serves the static site but has no save API.

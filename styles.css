@@ -561,17 +561,17 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .console .choices { padding: 10px; border-top: 3px solid #1c1e21; }
 /* Plain choices: one row, side by side, every button the same width and height
    (1-3 options; a 4th+ wraps onto a second row of 3). */
-.choices:not(.choices-cards):not(.choices-name):not(.choices-moves) {
+.choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle) {
   grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
 }
-.choices:not(.choices-cards):not(.choices-name):not(.choices-moves):has(> :nth-child(4)) {
+.choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle):has(> :nth-child(4)) {
   grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr));
 }
-.choices:not(.choices-cards):not(.choices-name):not(.choices-moves) .choice {
+.choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle) .choice {
   min-width: 0; min-height: 44px; padding: 8px 10px; gap: 10px;
 }
-.choices:not(.choices-cards):not(.choices-name):not(.choices-moves) .choice:hover:not(:disabled),
-.choices:not(.choices-cards):not(.choices-name):not(.choices-moves) .choice:focus-visible { transform: translateY(-2px); }
+.choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle) .choice:hover:not(:disabled),
+.choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle) .choice:focus-visible { transform: translateY(-2px); }
 /* Long option text wraps inside its button instead of widening it. */
 .choice-text { min-width: 0; overflow-wrap: anywhere; line-height: 1.25; }
 .choice {
@@ -608,17 +608,17 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .name-form input:focus { outline: none; border-color: var(--accent); }
 @media (max-width: 499px) {
   /* Phones: 2 across, a 3rd (last) option takes the full width. Never one tall column. */
-  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves) {
+  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle) {
     grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves) > :only-child,
-  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves) > :nth-child(3):last-child { grid-column: 1 / -1; }
-  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves) .choice {
+  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle) > :only-child,
+  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle) > :nth-child(3):last-child { grid-column: 1 / -1; }
+  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle) .choice {
     font-size: .95rem; padding: 6px 8px; gap: 6px;
   }
   /* Number keys are a keyboard shortcut; on phones the badge would only eat text room. */
-  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves) .choice-key { display: none; }
-  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves) .choice { justify-content: center; text-align: center; }
+  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle) .choice-key { display: none; }
+  .choices:not(.choices-cards):not(.choices-name):not(.choices-moves):not(.choices-puzzle) .choice { justify-content: center; text-align: center; }
   .story-page { padding: 12px; }
   .dialogue { padding: 14px 14px 12px; }
 }
@@ -975,4 +975,418 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 @media (prefers-reduced-motion: reduce) {
   .stage-fx::before, .stage-fx::after, .actor img, .stage-mon img,
   .stage-mon.evolving img, .stage-mon.evolved img { animation: none !important; }
+}
+
+/* Puzzles (puzzles.js): a grid board over the picture, a d-pad under the text.
+ * Each kind styles its tiles and actors in its own block below, under .pz-kind-<kind>. */
+.puzzle {
+  position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 2px;
+  background: rgba(20, 24, 32, .35); touch-action: none; user-select: none; z-index: 3;
+}
+.puzzle[hidden] { display: none; }
+.puzzle { --tile: 32px; --pic-tile: 14px; }
+.pz-grid {
+  position: relative; display: grid;
+  grid-template-columns: repeat(var(--cols), var(--tile)); grid-template-rows: repeat(var(--rows), var(--tile));
+  border: 3px solid #1c1e21; border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  background: #9aa5b1;
+}
+.pz-tile { width: var(--tile); height: var(--tile); }
+.pz-actors { position: absolute; inset: 0; pointer-events: none; }
+.pz-actor {
+  position: absolute; left: 0; top: 0; width: var(--tile); height: var(--tile);
+  display: grid; place-items: center; transition-property: transform; transition-timing-function: linear;
+}
+.pz-player img { width: 130%; height: 130%; object-fit: contain; object-position: bottom; margin-top: -30%; image-rendering: pixelated; }
+.pz-player.pz-bump img { animation: pz-bump .25s ease; }
+@keyframes pz-bump { 25% { translate: -3px 0; } 75% { translate: 3px 0; } }
+.pz-hud { display: flex; gap: 6px; justify-content: center; }
+.pz-pill {
+  font-size: .75rem; font-weight: 700; color: #fff; background: rgba(0,0,0,.5); padding: 1px 8px; border-radius: 99px;
+  font-variant-numeric: tabular-nums;
+}
+.pz-pill[hidden] { display: none; }
+.pz-timer.low { background: #c62828; animation: pz-tick 1s steps(2) infinite; }
+@keyframes pz-tick { 50% { background: #8e1c1c; } }
+.pz-main { display: flex; align-items: center; gap: calc(var(--tile) * .5); }
+/* Copy-the-picture goal, shown small beside the board */
+.pz-picture { display: grid; justify-items: center; gap: 2px; }
+.pz-picture-label { font-size: .7rem; font-weight: 700; color: #fff; text-shadow: 0 1px 2px #000; }
+.pz-picture-grid { --tile: var(--pic-tile); border-width: 2px; box-shadow: none; }
+/* A tile lit up as part of a pattern to remember (flash frames); kinds can restyle it */
+.pz-tile.pz-flash { box-shadow: inset 0 0 0 999px rgba(255, 236, 120, .85), 0 0 12px #ffe56b; position: relative; z-index: 1; }
+.puzzle.pz-solved .pz-grid { animation: pz-solved .7s ease; }
+@keyframes pz-solved { 50% { box-shadow: 0 0 0 4px #ffd84d, 0 0 26px #ffd84d; } }
+
+.choices-puzzle { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.choices-puzzle .pz-dir:hover:not(:disabled), .choices-puzzle .pz-dir:focus-visible { transform: none; }
+.pz-pad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(2, 44px); gap: 4px; }
+.choices-puzzle .pz-dir { min-height: 0; width: 44px; height: 44px; padding: 0; justify-content: center; font-size: 1rem; }
+.pz-up { grid-column: 2; grid-row: 1; }
+.pz-left { grid-column: 1; grid-row: 2; }
+.pz-down { grid-column: 2; grid-row: 2; }
+.pz-right { grid-column: 3; grid-row: 2; }
+.pz-side { display: grid; gap: 6px; }
+@media (prefers-reduced-motion: reduce) {
+  .pz-actor { transition: none !important; }
+  .pz-player.pz-bump img, .puzzle.pz-solved .pz-grid, .pz-timer.low { animation: none; }
+}
+
+/* Puzzle: ice (puzzle-ice.js) */
+.pz-kind-ice .pz-grid { background: #cfe6f5; border-color: #3d5a70; }
+.pz-kind-ice .pz-ice {
+  background:
+    linear-gradient(135deg, transparent 22%, rgba(255,255,255,.75) 26%, transparent 31%,
+      transparent 52%, rgba(255,255,255,.45) 55%, transparent 58%),
+    linear-gradient(160deg, #e6f5ff, #a9d6f2 60%, #8cc4e8);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.45);
+}
+.pz-kind-ice .pz-snow {
+  background:
+    radial-gradient(circle at 28% 32%, #fff 0 12%, transparent 13%),
+    radial-gradient(circle at 70% 64%, #fff 0 10%, transparent 11%),
+    radial-gradient(circle at 50% 40%, #ffffff, #eef4f8 55%, #d5e2ec);
+  box-shadow: inset 0 -2px 0 rgba(120,150,175,.35);
+}
+.pz-kind-ice .pz-rock {
+  background:
+    radial-gradient(ellipse at 34% 28%, rgba(255,255,255,.45) 0 14%, transparent 34%),
+    radial-gradient(circle at 50% 45%, #9aa1a8, #6f777f 58%, #4b5259 80%);
+  box-shadow: inset 0 0 0 1px #3b4147, inset 0 -3px 0 rgba(0,0,0,.25);
+  border-radius: 22%;
+}
+/* The exit: a gap with stairs going up, lit from the far side. */
+.pz-kind-ice .pz-exit {
+  background:
+    repeating-linear-gradient(180deg, rgba(255,255,255,.6) 0 8%, transparent 8% 25%),
+    radial-gradient(ellipse at 50% 0%, #fff6c9, #ffd84d 45%, #d99a1e 100%);
+  box-shadow: inset 0 0 0 2px #fff3b0, 0 0 10px 2px rgba(255,216,77,.8);
+  animation: pz-ice-glow 1.6s ease-in-out infinite alternate;
+  position: relative; z-index: 1;
+}
+@keyframes pz-ice-glow { to { box-shadow: inset 0 0 0 2px #fff3b0, 0 0 16px 5px rgba(255,216,77,.95); } }
+/* Cracked ice: paler ice with dark zigzag cracks (an SVG that scales with the tile). */
+.pz-kind-ice .pz-cracked {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cg fill='none' stroke='%23244e6e' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 4 6 8 9 6 11 11 16 12 19 17'/%3E%3Cpath d='M9 6 10 1M11 11 8 15 9 19M16 12 19 8M6 8 3 13'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat,
+    linear-gradient(160deg, #eef8ff, #bfe0f5 60%, #a5d2ee);
+  box-shadow: inset 0 0 0 1px rgba(36,78,110,.35);
+}
+/* A hole: dark cold water with a jagged white rim of broken ice. */
+.pz-kind-ice .pz-hole {
+  background:
+    radial-gradient(ellipse at 38% 34%, rgba(160,210,240,.45) 0 10%, transparent 24%),
+    radial-gradient(circle at 50% 55%, #1d4d72, #0d2b45 55%, #06182a 85%);
+  box-shadow: inset 0 0 0 2px #e8f5ff, inset 0 0 0 4px rgba(232,245,255,.35), inset 0 4px 6px rgba(0,0,0,.5);
+  border-radius: 30%;
+  animation: pz-ice-break .35s ease-out;
+}
+@keyframes pz-ice-break { from { transform: scale(.6); opacity: .3; } }
+@media (prefers-color-scheme: dark) {
+  .pz-kind-ice .pz-ice, .pz-kind-ice .pz-snow, .pz-kind-ice .pz-cracked { filter: brightness(.88); }
+  .pz-kind-ice .pz-grid { border-color: #0f1a24; }
+  .pz-kind-ice .pz-hole { box-shadow: inset 0 0 0 2px #b9d6ea, inset 0 0 0 4px rgba(185,214,234,.3), inset 0 4px 6px rgba(0,0,0,.6); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pz-kind-ice .pz-exit, .pz-kind-ice .pz-hole { animation: none; }
+}
+
+/* Puzzle: boulder (puzzle-boulder.js) */
+.pz-kind-boulder .pz-grid { background: #6b5a48; border-color: #2a221b; }
+.pz-kind-boulder .pz-floor {
+  background:
+    radial-gradient(circle at 24% 30%, rgba(60,44,30,.35) 0 7%, transparent 8%),
+    radial-gradient(circle at 72% 68%, rgba(255,240,220,.18) 0 6%, transparent 7%),
+    radial-gradient(circle at 62% 22%, rgba(60,44,30,.25) 0 4%, transparent 5%),
+    linear-gradient(150deg, #a8927a, #8f7a64 60%, #7f6b57);
+  box-shadow: inset 0 0 0 1px rgba(60,44,30,.18);
+}
+.pz-kind-boulder .pz-wall {
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.14) 0 18%, transparent 30%),
+    radial-gradient(ellipse at 30% 75%, #4a4440 0 22%, transparent 23%),
+    radial-gradient(ellipse at 75% 40%, #423c38 0 20%, transparent 21%),
+    linear-gradient(180deg, #57504a, #36312d 70%, #2a2623);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.25);
+}
+/* A pad: a glowing ring in the floor, waiting for a boulder. */
+.pz-kind-boulder .pz-pad, .pz-kind-boulder .pz-pad-on {
+  background:
+    radial-gradient(circle, transparent 0 24%, #ffd27a 26% 34%, transparent 37%),
+    radial-gradient(circle, rgba(255,196,80,.55), rgba(255,196,80,0) 70%),
+    linear-gradient(150deg, #a8927a, #8f7a64 60%, #7f6b57);
+  animation: pz-boulder-pad 1.4s ease-in-out infinite alternate;
+}
+@keyframes pz-boulder-pad { to { filter: brightness(1.25) saturate(1.2); } }
+/* Covered: the ring turns green and stops pulsing. */
+.pz-kind-boulder .pz-pad-on {
+  background:
+    radial-gradient(circle, #8ff08a 0 40%, rgba(80,210,90,.5) 44%, transparent 72%),
+    linear-gradient(150deg, #a8927a, #8f7a64 60%, #7f6b57);
+  animation: none;
+}
+.pz-kind-boulder .pz-boulder::before {
+  content: ''; width: 84%; height: 84%; border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 34% 28%, rgba(255,255,255,.5) 0 10%, transparent 30%),
+    radial-gradient(circle at 64% 60%, transparent 0 52%, rgba(0,0,0,.18) 53% 56%, transparent 57%),
+    radial-gradient(circle at 45% 40%, #b3a898, #857a6d 55%, #5b5249 85%);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.28), 0 2px 3px rgba(0,0,0,.45);
+  transition: box-shadow .25s ease;
+}
+.pz-kind-boulder .pz-boulder-on::before {
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.28), 0 0 0 2px #8ff08a, 0 0 10px 2px rgba(120,230,110,.8);
+}
+@media (prefers-color-scheme: dark) {
+  .pz-kind-boulder .pz-floor, .pz-kind-boulder .pz-pad { filter: brightness(.85); }
+  .pz-kind-boulder .pz-grid { border-color: #120e0b; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pz-kind-boulder .pz-pad { animation: none; }
+}
+
+/* Puzzle: switch (puzzle-switch.js) */
+/* A power plant: metal floor plates, steel walls, red gates (stripes) and blue gates (dots).
+ * Closed gates stand up and glow; open ones lie flat as a dashed outline. A switch shows the colour
+ * that is open now, with the same stripes or dots, so the colours never rely on red vs blue alone. */
+.pz-kind-switch .pz-grid {
+  background: #5d6670; border-color: #1b2026;
+  --pz-u: calc(var(--tile) / 16);
+  --pz-floor:
+    radial-gradient(circle at 12% 12%, #d5dce3 0 5%, transparent 7%),
+    radial-gradient(circle at 88% 12%, #d5dce3 0 5%, transparent 7%),
+    radial-gradient(circle at 12% 88%, #d5dce3 0 5%, transparent 7%),
+    radial-gradient(circle at 88% 88%, #d5dce3 0 5%, transparent 7%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.09) 0 6%, transparent 6% 16%),
+    linear-gradient(160deg, #a4adb6, #86909a 60%, #78828c);
+}
+.pz-kind-switch .pz-tile { position: relative; }
+.pz-kind-switch .pz-floor,
+.pz-kind-switch .pz-switch-red, .pz-kind-switch .pz-switch-blue {
+  background: var(--pz-floor);
+  box-shadow: inset 0 0 0 1px rgba(40,48,56,.35);
+}
+.pz-kind-switch .pz-wall {
+  background:
+    radial-gradient(circle at 50% 50%, #7a838c 0 9%, #3a4148 10% 13%, transparent 14%),
+    linear-gradient(160deg, rgba(255,255,255,.16) 0 20%, transparent 32%),
+    linear-gradient(180deg, #505962, #353c43 70%, #2a3036);
+  box-shadow: inset 0 calc(var(--pz-u) * -2) 0 rgba(0,0,0,.4), inset 0 0 0 1px rgba(0,0,0,.35);
+}
+/* Closed gates: raised, bright and glowing. Red has diagonal stripes, blue has dots. */
+.pz-kind-switch .pz-red-closed, .pz-kind-switch .pz-blue-closed {
+  border-radius: 14%;
+  animation: pz-switch-hum 1.5s ease-in-out infinite alternate;
+}
+.pz-kind-switch .pz-red-closed {
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 11%, transparent 11% 25%),
+    linear-gradient(180deg, #ff8575, #e5483b 45%, #b3261c);
+  box-shadow: inset 0 calc(var(--pz-u) * 1.5) 0 rgba(255,255,255,.4), inset 0 calc(var(--pz-u) * -2.5) 0 rgba(90,10,5,.55),
+    inset 0 0 calc(var(--pz-u) * 4) rgba(255,220,200,.7), 0 0 0 1px #6e150e;
+}
+.pz-kind-switch .pz-blue-closed {
+  background:
+    radial-gradient(circle, rgba(255,255,255,.75) 0 22%, transparent 26%) 0 0 / 33.34% 33.34%,
+    linear-gradient(180deg, #7fb4ff, #2f80e8 45%, #1b56a8);
+  box-shadow: inset 0 calc(var(--pz-u) * 1.5) 0 rgba(255,255,255,.4), inset 0 calc(var(--pz-u) * -2.5) 0 rgba(5,25,70,.55),
+    inset 0 0 calc(var(--pz-u) * 4) rgba(210,230,255,.7), 0 0 0 1px #0f2f63;
+}
+@keyframes pz-switch-hum { to { filter: brightness(1.18); } }
+/* Open gates: flat on the floor, a dashed outline with faint stripes or dots. */
+.pz-kind-switch .pz-red-open, .pz-kind-switch .pz-blue-open {
+  outline-width: max(1px, calc(var(--pz-u) * 1.2)); outline-style: dashed; outline-offset: calc(var(--pz-u) * -2.5);
+}
+.pz-kind-switch .pz-red-open {
+  background: repeating-linear-gradient(45deg, rgba(229,72,59,.35) 0 11%, transparent 11% 25%), var(--pz-floor);
+  outline-color: #c8322a;
+}
+.pz-kind-switch .pz-blue-open {
+  background: radial-gradient(circle, rgba(47,128,232,.5) 0 20%, transparent 24%) 0 0 / 33.34% 33.34%, var(--pz-floor);
+  outline-color: #1f64c4;
+}
+/* Switch: a round button in a metal rim, showing which colour is open now. */
+.pz-kind-switch .pz-switch-red::before, .pz-kind-switch .pz-switch-blue::before {
+  content: ''; position: absolute; inset: 18%; border-radius: 50%;
+  transition: background .2s ease;
+}
+.pz-kind-switch .pz-switch-red::before {
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 12%, transparent 12% 26%),
+    radial-gradient(circle at 40% 35%, #ff9a8c, #e5483b 55%, #a8231a);
+  box-shadow: 0 0 0 calc(var(--pz-u) * 1.5) #353c43, inset 0 calc(var(--pz-u) * -1.5) 0 rgba(0,0,0,.3),
+    0 0 calc(var(--pz-u) * 2.5) calc(var(--pz-u) * .5) rgba(255,90,70,.75);
+}
+.pz-kind-switch .pz-switch-blue::before {
+  background:
+    radial-gradient(circle, rgba(255,255,255,.8) 0 20%, transparent 25%) 0 0 / 33.34% 33.34%,
+    radial-gradient(circle at 40% 35%, #9cc6ff, #2f80e8 55%, #184e98);
+  box-shadow: 0 0 0 calc(var(--pz-u) * 1.5) #353c43, inset 0 calc(var(--pz-u) * -1.5) 0 rgba(0,0,0,.3),
+    0 0 calc(var(--pz-u) * 2.5) calc(var(--pz-u) * .5) rgba(70,150,255,.75);
+}
+/* The exit: the plant door, lit up yellow behind a steel frame. */
+.pz-kind-switch .pz-exit {
+  background:
+    linear-gradient(90deg, transparent 0 47%, rgba(120,80,0,.45) 47% 53%, transparent 53%),
+    radial-gradient(ellipse at 50% 30%, #fff6c9, #ffd84d 50%, #d99a1e 100%);
+  box-shadow: inset 0 0 0 calc(var(--pz-u) * 2.5) #353c43, inset 0 0 0 calc(var(--pz-u) * 3.5) #fff3b0;
+  animation: pz-switch-door 1.6s ease-in-out infinite alternate;
+}
+@keyframes pz-switch-door { to { filter: brightness(1.15) saturate(1.2); } }
+@media (prefers-color-scheme: dark) {
+  .pz-kind-switch .pz-floor, .pz-kind-switch .pz-switch-red, .pz-kind-switch .pz-switch-blue,
+  .pz-kind-switch .pz-red-open, .pz-kind-switch .pz-blue-open { filter: brightness(.82); }
+  .pz-kind-switch .pz-red-open { outline-color: #ff6b5e; }
+  .pz-kind-switch .pz-blue-open { outline-color: #5ea2ff; }
+  .pz-kind-switch .pz-grid { border-color: #0d1014; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pz-kind-switch .pz-red-closed, .pz-kind-switch .pz-blue-closed, .pz-kind-switch .pz-exit { animation: none; }
+  .pz-kind-switch .pz-switch-red::before, .pz-kind-switch .pz-switch-blue::before { transition: none; }
+}
+
+/* Puzzle: memory (puzzle-memory.js) */
+/* A dim cave: every carved stone looks the same until it's found (so the pattern is real memory).
+ * Flash frames (pz-mem-flash) light one stone gold; found stones glow a steady green with a tick-like ring. */
+.pz-kind-memory .pz-grid {
+  background: #4d4a52; border-color: #1f1d23;
+  --pz-mem-floor:
+    radial-gradient(circle at 22% 30%, rgba(30,26,36,.35) 0 7%, transparent 8%),
+    radial-gradient(circle at 74% 70%, rgba(255,255,255,.12) 0 6%, transparent 7%),
+    radial-gradient(circle at 64% 20%, rgba(30,26,36,.25) 0 4%, transparent 5%),
+    linear-gradient(150deg, #8d8794, #75707d 60%, #686370);
+}
+.pz-kind-memory .pz-tile { position: relative; }
+.pz-kind-memory .pz-floor, .pz-kind-memory .pz-start,
+.pz-kind-memory .pz-stone, .pz-kind-memory .pz-stone-done {
+  background: var(--pz-mem-floor);
+  box-shadow: inset 0 0 0 1px rgba(30,26,36,.2);
+}
+/* Start: a faint dashed ring, so you know where a wrong step sends you. */
+.pz-kind-memory .pz-start::before {
+  content: ''; position: absolute; inset: 22%; border-radius: 50%;
+  border: max(1px, calc(var(--tile) / 20)) dashed rgba(255,255,255,.45);
+}
+.pz-kind-memory .pz-wall {
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.12) 0 18%, transparent 30%),
+    radial-gradient(ellipse at 30% 75%, #3c3842 0 22%, transparent 23%),
+    radial-gradient(ellipse at 75% 40%, #36323b 0 20%, transparent 21%),
+    linear-gradient(180deg, #4a4650, #2e2b33 70%, #232027);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.25);
+}
+/* A carved stone slab with a spiral mark (all the same until found). */
+.pz-kind-memory .pz-stone::before, .pz-kind-memory .pz-stone-done::before {
+  content: ''; position: absolute; inset: 12%; border-radius: 22%;
+  background:
+    radial-gradient(circle, transparent 0 14%, rgba(40,34,46,.55) 16% 22%, transparent 24% 36%,
+      rgba(40,34,46,.45) 38% 44%, transparent 46%),
+    linear-gradient(160deg, #c6c0cc, #a39cab 55%, #8a8392);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), inset 0 2px 0 rgba(255,255,255,.35), 0 2px 3px rgba(0,0,0,.4);
+  transition: background .25s ease, box-shadow .25s ease;
+}
+/* Flash: the stone blazes gold, one at a time. */
+.pz-kind-memory .pz-tile.pz-mem-flash { z-index: 1; }
+.pz-kind-memory .pz-tile.pz-mem-flash::before {
+  background:
+    radial-gradient(circle, #fff 0 14%, #ffe98a 16% 22%, transparent 24% 36%, #fff3b8 38% 44%, transparent 46%),
+    radial-gradient(circle at 50% 45%, #fff6c9, #ffd84d 55%, #e0a21e);
+  box-shadow: 0 0 0 2px #fff3b0, 0 0 14px 5px rgba(255,216,77,.95);
+  transition: none;
+  animation: pz-mem-pop .35s ease-out;
+}
+@keyframes pz-mem-pop { from { transform: scale(.8); } 60% { transform: scale(1.12); } to { transform: scale(1); } }
+/* Found: a steady green glow (no pulsing, so it doesn't look like a flash). */
+.pz-kind-memory .pz-stone-done::before {
+  background:
+    radial-gradient(circle, #eaffe6 0 14%, rgba(30,110,40,.6) 16% 22%, transparent 24% 36%,
+      rgba(30,110,40,.5) 38% 44%, transparent 46%),
+    radial-gradient(circle at 50% 45%, #c9f7c2, #6fd66a 60%, #3c9e3f);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.2), 0 0 0 2px #8ff08a, 0 0 9px 2px rgba(120,230,110,.7);
+}
+@media (prefers-color-scheme: dark) {
+  .pz-kind-memory .pz-floor, .pz-kind-memory .pz-start,
+  .pz-kind-memory .pz-stone, .pz-kind-memory .pz-stone-done { filter: brightness(.88); }
+  .pz-kind-memory .pz-grid { border-color: #0f0e12; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pz-kind-memory .pz-tile.pz-mem-flash::before { animation: none; }
+}
+
+/* Puzzle: picture (puzzle-picture.js) */
+/* Power-plant floor panels. Off: a dark sunken plate with an empty ring. On: a bright yellow plate
+ * with a dark lightning bolt, so on and off differ in shape as well as colour. The small "Make this!"
+ * picture uses the same tiles; percentages keep them readable at 8-14px. */
+.pz-kind-picture .pz-grid { background: #5d6670; border-color: #1b2026; }
+.pz-kind-picture .pz-tile { position: relative; }
+.pz-kind-picture .pz-floor {
+  background:
+    radial-gradient(circle at 12% 12%, #d5dce3 0 5%, transparent 7%),
+    radial-gradient(circle at 88% 88%, #d5dce3 0 5%, transparent 7%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.09) 0 6%, transparent 6% 16%),
+    linear-gradient(160deg, #a4adb6, #86909a 60%, #78828c);
+  box-shadow: inset 0 0 0 1px rgba(40,48,56,.35);
+}
+.pz-kind-picture .pz-wall {
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.16) 0 20%, transparent 32%),
+    linear-gradient(180deg, #505962, #353c43 70%, #2a3036);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.4), inset 0 0 0 1px rgba(0,0,0,.35);
+}
+.pz-kind-picture .pz-exit {
+  background: radial-gradient(ellipse at 50% 30%, #fff6c9, #ffd84d 50%, #d99a1e 100%);
+  box-shadow: inset 0 0 0 3px #353c43;
+}
+.pz-kind-picture .pz-panel-off {
+  background:
+    radial-gradient(circle, transparent 0 22%, #6f7b87 24% 32%, transparent 34%),
+    linear-gradient(160deg, #3b434b, #2b3138 70%, #22272c);
+  box-shadow: inset 0 0 0 1px #15191d, inset 0 0 0 2px rgba(255,255,255,.08);
+}
+.pz-kind-picture .pz-panel-on {
+  background: radial-gradient(circle at 40% 35%, #fffbe0, #ffe45c 45%, #f2b51d 100%);
+  box-shadow: inset 0 0 0 1px #8a5a00, 0 0 8px 1px rgba(255,216,77,.75);
+  z-index: 1;
+}
+/* The bolt: a zig-zag cut out of a dark block. */
+.pz-kind-picture .pz-panel-on::before {
+  content: ''; position: absolute; inset: 12%;
+  background: #5a3a00;
+  clip-path: polygon(58% 0, 18% 56%, 46% 56%, 34% 100%, 82% 40%, 54% 40%, 70% 0);
+}
+.pz-kind-picture .pz-picture-grid .pz-panel-on { box-shadow: inset 0 0 0 1px #8a5a00; }
+.pz-kind-picture .pz-picture-grid .pz-panel-on::before { inset: 6%; }
+.pz-kind-picture .pz-picture-grid .pz-panel-off { background: linear-gradient(160deg, #3b434b, #22272c); }
+@media (prefers-color-scheme: dark) {
+  .pz-kind-picture .pz-floor { filter: brightness(.82); }
+  .pz-kind-picture .pz-grid { border-color: #0d1014; }
+}
+
+/* Puzzle records card (story.js showScores): over the stage after a solve */
+.stage-scores {
+  position: absolute; inset: 4%; overflow-y: auto; display: grid; align-content: center; justify-items: center; gap: 6px;
+  padding: 10px; border-radius: 14px; background: #f7f8fa; color: #1c1e21; z-index: 4;
+  animation: mon-pop .5s ease;
+}
+.stage-scores[hidden] { display: none; }
+.scores-title { margin: 0; font-size: 1.05rem; }
+.scores-mine { margin: 0; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; font-weight: 700; }
+.score-new { color: #b45309; }
+.scores-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 150px)); gap: 6px 18px; width: 100%; justify-content: center; }
+.scores-list h4 { margin: 0 0 2px; font-size: .8rem; color: #4b5563; text-align: center; }
+.scores-list ol { margin: 0; padding-left: 1.4em; font-size: .85rem; line-height: 1.35; }
+.scores-list li::marker { color: #6b7280; }
+.scores-list li span { display: inline-flex; }
+.scores-list li { white-space: nowrap; }
+.score-name { overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
+.score-value { float: right; font-variant-numeric: tabular-nums; }
+.score-me { font-weight: 700; color: #1d4ed8; }
+.stage-scores .muted { margin: 0; color: #4b5563; font-size: .85rem; }
+@media (max-width: 499px) {
+  .scores-title { font-size: .9rem; }
+  .scores-list ol { font-size: .75rem; line-height: 1.25; }
+  .scores-mine { font-size: .85rem; gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-scores { animation: none; }
 }

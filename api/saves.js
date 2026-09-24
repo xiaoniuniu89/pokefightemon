@@ -8,30 +8,11 @@
 // Each player's saves live in one Redis hash, "saves:<player>", so the Upstash data browser
 // shows which kid owns which saves.
 const { SAVE_ID, MAX_BODY, MAX_SAVES, whoIsAsking } = require('./_shared');
+const { redis, send, configured } = require('./_redis');
 
-// Set by the Upstash integration in Vercel (older setups use the KV_ names).
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-
-async function redis(...command) {
-  const r = await fetch(REDIS_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${REDIS_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(command),
-  });
-  const data = await r.json();
-  if (!r.ok || data.error) throw new Error(data.error || `Redis ${r.status}`);
-  return data.result;
-}
-
-function send(res, status, body) {
-  res.setHeader('Cache-Control', 'no-store');
-  if (body === undefined) return res.status(status).end();
-  return res.status(status).json(body);
-}
 
 module.exports = async (req, res) => {
-  if (!REDIS_URL || !REDIS_TOKEN) return send(res, 500, { error: 'Save database is not set up' });
+  if (!configured) return send(res, 500, { error: 'Save database is not set up' });
   const who = whoIsAsking(req.headers);
   if (who.error) return send(res, who.status, { error: who.error });
   const key = `saves:${who.owner}`;

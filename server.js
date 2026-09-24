@@ -7,10 +7,13 @@
 //   GET    /api/saves/:id    -> { id, updated, owner, state }
 //   PUT    /api/saves/:id    body: story state JSON -> { id, updated }
 //   DELETE /api/saves/:id    -> 204
+// and the puzzle high scores (/api/scores, see handleScores).
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { SAVE_ID, MAX_BODY, MAX_SAVES, whoIsAsking } = require('./api/_shared');
+const {
+  SAVE_ID, MAX_BODY, MAX_SAVES, PUZZLE_ID, whoIsAsking, checkScore, mergeBest, leaderboard,
+} = require('./api/_shared');
 
 const ROOT = __dirname;
 const PORT = Number(process.argv[2] || process.env.PORT || 8080);
@@ -38,9 +41,10 @@ function loadDb() {
   try {
     const parsed = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
     db = parsed && typeof parsed.players === 'object' ? parsed : { players: {} };
+    if (!db.scores || typeof db.scores !== 'object') db.scores = {};
   } catch (err) {
     if (err.code !== 'ENOENT') console.warn(`Could not read ${DB_FILE}, starting empty: ${err.message}`);
-    db = { players: {} };
+    db = { players: {}, scores: {} };
   }
   return db;
 }
@@ -123,6 +127,40 @@ async function handleApi(req, res, urlPath) {
   return sendJson(res, 405, { error: 'Method not allowed' });
 }
 
+// Puzzle high scores, same as api/scores.js; stored in the same file under `scores`:
+//   { scores: { "<chapter>:<scene>": { <player>: { moves, ms, at } } } }
+//   GET  /api/scores?puzzle=ch4:rockfall        -> { moves: [{ name, moves }], time: [{ name, ms }], mine }
+//   POST /api/scores  body { puzzle, moves, ms } -> the same, plus { newMoves, newTime }
+async function handleScores(req, res, url) {
+  const who = whoIsAsking(req.headers);
+  if (who.error) return sendJson(res, who.status, { error: who.error });
+  const scores = loadDb().scores;
+  if (req.method === 'GET') {
+    const puzzle = url.searchParams.get('puzzle') || '';
+    if (!PUZZLE_ID.test(puzzle)) return sendJson(res, 400, { error: 'Bad puzzle id' });
+    return sendJson(res, 200, leaderboard(scores[puzzle] || {}, who.owner));
+  }
+  if (req.method === 'POST') {
+    let body;
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch (err) {
+      return sendJson(res, err.status || 400, { error: err.status ? err.message : 'Body must be JSON' });
+    }
+    if (!body || !PUZZLE_ID.test(body.puzzle || '')) return sendJson(res, 400, { error: 'Bad puzzle id' });
+    const score = checkScore(body);
+    if (score.error) return sendJson(res, 400, { error: score.error });
+    const all = scores[body.puzzle] || (scores[body.puzzle] = {});
+    const { best, newMoves, newTime } = mergeBest(all[who.owner], score);
+    if (newMoves || newTime) {
+      all[who.owner] = best;
+      await persist();
+    }
+    return sendJson(res, 200, { ...leaderboard(all, who.owner), newMoves, newTime });
+  }
+  return sendJson(res, 405, { error: 'Method not allowed' });
+}
+
 // ---------- Static files ----------
 function serveStatic(req, res, urlPath) {
   const safePath = path.normalize(urlPath).replace(/^(\.\.[/\\])+/, '');
@@ -150,11 +188,20 @@ function serveStatic(req, res, urlPath) {
 }
 
 const server = http.createServer((req, res) => {
+  let url;
   let urlPath;
   try {
-    urlPath = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+    url = new URL(req.url, 'http://localhost');
+    urlPath = decodeURIComponent(url.pathname);
   } catch {
     res.writeHead(400); return res.end('Bad request');
+  }
+  if (urlPath === '/api/scores') {
+    handleScores(req, res, url).catch((err) => {
+      console.error(err);
+      sendJson(res, 500, { error: 'Server error' });
+    });
+    return;
   }
   if (urlPath === '/api/saves' || urlPath.startsWith('/api/saves/')) {
     handleApi(req, res, urlPath).catch((err) => {

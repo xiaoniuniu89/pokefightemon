@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokédex — Puzzle test</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Dev page: plays the story's puzzles straight from chapters.js, no save or invite needed. -->
+  <main class="story-page">
+    <section class="story">
+      <div class="story-bar">
+        <div id="chapter-tag" class="chapter-tag">Puzzle test</div>
+        <div id="picker" class="puzzle-picker"></div>
+      </div>
+      <div id="stage" class="stage bg-intro">
+        <div class="stage-fx" aria-hidden="true"></div>
+        <div id="puzzle" class="puzzle" hidden></div>
+      </div>
+      <div class="console">
+        <div class="dialogue">
+          <p id="line" class="line">Pick a puzzle above.</p>
+        </div>
+        <div id="choices" class="choices"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="puzzles.js"></script>
+  <script src="puzzle-ice.js"></script>
+  <script src="puzzle-boulder.js"></script>
+  <script src="puzzle-switch.js"></script>
+  <script src="puzzle-memory.js"></script>
+  <script src="puzzle-picture.js"></script>
+  <script src="chapters.js"></script>
+  <script>
+    (() => {
+      const $ = (sel) => document.querySelector(sel);
+      const stage = $('#stage');
+      const board = $('#puzzle');
+      const controls = $('#choices');
+      const line = $('#line');
+      const sprite = window.STORY_CAST.player.sprite({ look: 'red' });
+
+      // Every puzzle scene in the story, in chapter order.
+      const found = [];
+      for (const ch of window.STORY_CHAPTERS) {
+        for (const [id, scene] of Object.entries(ch.scenes)) {
+          if (scene.prompt && scene.prompt.kind === 'puzzle') found.push({ ch, id, scene });
+        }
+      }
+
+      const sayLine = (text) => new Promise((resolve) => {
+        line.textContent = `${text} (click to go on)`;
+        line.parentElement.addEventListener('click', resolve, { once: true });
+      });
+
+      async function start({ ch, id, scene }) {
+        const pr = scene.prompt;
+        const fake = { flags: {} };
+        const rooms = typeof pr.rooms === 'function' ? pr.rooms(fake)
+          : pr.rooms || [{ puzzle: pr.puzzle, grid: typeof pr.grid === 'function' ? pr.grid(fake) : pr.grid }];
+        const best = rooms.map((r) => StoryPuzzles.solve(r.puzzle, r.grid)).join(' + ');
+        $('#chapter-tag').textContent = `${ch.title} · ${id} · best ${best} moves${pr.time ? ` · ${pr.time}s` : ''}`;
+        stage.className = `stage bg-${scene.bg || 'intro'}`;
+        const { result, moves, ms } = await StoryPuzzles.run({
+          rooms,
+          time: pr.time,
+          question: typeof pr.question === 'function' ? pr.question(fake) : pr.question,
+          hint: typeof pr.hint === 'function' ? pr.hint(fake) : pr.hint,
+          hintAfter: pr.hintAfter,
+          skipAfter: pr.skipAfter,
+          board, controls, sprite,
+          show: (text) => { line.textContent = text; },
+          say: sayLine,
+        });
+        if (result === 'cancel') return;
+        line.textContent = result === 'solved'
+          ? `Solved in ${moves} moves and ${(ms / 1000).toFixed(1)} s! Pick another puzzle above.`
+          : 'Skipped. Pick another puzzle above.';
+      }
+
+      for (const f of found) {
+        const btn = document.createElement('button');
+        btn.className = 'menu-btn';
+        const pr = f.scene.prompt;
+        const kinds = Array.isArray(pr.rooms) ? pr.rooms.map((r) => r.puzzle).join('+') : pr.puzzle || 'rooms';
+        btn.textContent = `${f.ch.id} ${kinds}`;
+        // Starting a new puzzle ends the current one with 'cancel'.
+        btn.addEventListener('click', () => start(f));
+        $('#picker').append(btn);
+      }
+    })();
+  </script>
+</body>
+</html>

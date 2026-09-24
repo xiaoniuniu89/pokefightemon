@@ -70,6 +70,10 @@
         <div class="stage-fx" aria-hidden="true"></div>
         <!-- Final end screen: the whole team and the shards found -->
         <div id="stage-final" class="stage-final" hidden></div>
+        <!-- Grid puzzles (puzzles.js): the board covers the picture, the d-pad goes in the choices -->
+        <div id="puzzle" class="puzzle" hidden></div>
+        <!-- Puzzle records after a solve: this try, your bests, top players -->
+        <div id="stage-scores" class="stage-scores" hidden></div>
         <div id="battle" class="battle" hidden>
           <div class="combatant foe">
             <div class="hud" id="foe-hud"></div>
@@ -121,6 +125,12 @@
   </main>
 
   <script src="music.js"></script>
+  <script src="puzzles.js"></script>
+  <script src="puzzle-ice.js"></script>
+  <script src="puzzle-boulder.js"></script>
+  <script src="puzzle-switch.js"></script>
+  <script src="puzzle-memory.js"></script>
+  <script src="puzzle-picture.js"></script>
   <script src="chapters.js"></script>
   <script src="story.js"></script>
 </body>

@@ -101,6 +101,8 @@
   const finalEl = $('#stage-final');
   const turnTimerEl = $('#turn-timer');
   const turnBarEl = $('#turn-bar');
+  const puzzleEl = $('#puzzle');
+  const scoresEl = $('#stage-scores');
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -769,6 +771,7 @@
   function renderStage({ bg, cast = [], who, mon }) {
     stageEl.className = `stage bg-${bg || 'intro'}`;
     finalEl.hidden = true;
+    scoresEl.hidden = true;
     castEl.replaceChildren(...cast.filter((k) => CAST[k]).map((k) => actorNode(k, k === who)));
     castEl.classList.toggle('has-speaker', cast.includes(who));
     const id = monId(mon);
@@ -866,6 +869,7 @@
       case 'look': return promptLook(pr);
       case 'starter': return promptStarter(pr, scene);
       case 'battle': return promptBattle(pr, scene);
+      case 'puzzle': return promptPuzzle(pr, scene);
       case 'end': return promptEnd();
       default: throw new Error(`Unknown prompt "${pr.kind}"`);
     }
@@ -946,6 +950,147 @@
       }
       choicesEl.querySelector('button')?.focus();
     });
+  }
+
+  // ---------- Puzzles (puzzles.js plus one file per kind) ----------
+  /** Play a grid puzzle (one or more rooms, maybe against the clock) until it's solved or skipped.
+   * You can't lose: "Start again" restarts the room, running out of time goes back to room 1, the `hint`
+   * is said after `hintAfter` tries and Skip appears after `skipAfter`. The first solve applies the
+   * prompt's `set`/`give` and plays `after`; skipping gives nothing. Each solve posts a score and shows
+   * the records card, with the choice to try again for a better score. The outcome is stored in
+   * flags['<chapter>:<scene>'] as 'solved' or 'skipped'. */
+  async function promptPuzzle(pr, scene) {
+    const puzzles = window.StoryPuzzles;
+    const rooms = typeof pr.rooms === 'function' ? pr.rooms(s)
+      : pr.rooms || [{ puzzle: pr.puzzle, grid: typeof pr.grid === 'function' ? pr.grid(s) : pr.grid }];
+    for (const r of rooms) {
+      if (!puzzles || !puzzles.kinds[r.puzzle]) throw new Error(`Unknown puzzle "${r.puzzle}"`);
+    }
+    const key = `${chapter().id}:${s.scene}`;
+    for (;;) {
+      renderStage({ bg: scene.bg });
+      const { result, moves, ms } = await puzzles.run({
+        rooms: rooms.map((r) => ({ ...r, text: r.text && fill(r.text) })),
+        time: pr.time,
+        question: fill(pr.question || 'Can you solve the puzzle?'),
+        hint: pr.hint && fill(pr.hint),
+        hintAfter: pr.hintAfter,
+        skipAfter: pr.skipAfter,
+        board: puzzleEl,
+        controls: choicesEl,
+        sprite: CAST.player.sprite(s),
+        paused: () => !menuEl.hidden,
+        show: (text) => show('narrator', text),
+        // After a hint or "Time's up!" the stage goes back to just the backdrop, under the board.
+        say: async (text) => {
+          await say('narrator', text);
+          renderStage({ bg: scene.bg });
+        },
+        hide: () => {
+          puzzleEl.hidden = true;
+          renderStage({ bg: scene.bg, cast: scene.cast, mon: 'lead' });
+        },
+      });
+      clearChoices();
+      renderStage({ bg: scene.bg });
+      const first = s.flags[key] !== 'solved';
+      if (result === 'skipped') {
+        if (first) s.flags[key] = 'skipped';
+        return resolveNext(pr.skip ?? pr.next);
+      }
+      music.jingle('caught');
+      if (first) {
+        s.flags[key] = 'solved';
+        applyEffects(pr);
+        save();
+      }
+      const board = await postScore(key, moves, ms);
+      showScores(board, moves, ms);
+      await show('narrator', scoreLine(board, moves, ms));
+      const again = await choose(['Keep going', 'Try again for a better score']);
+      scoresEl.hidden = true;
+      if (again === 1) continue;
+      if (first) await playPanels(pr.after, scene);
+      return resolveNext(pr.next);
+    }
+  }
+
+  // ---------- Puzzle high scores ----------
+  // Best moves and time per puzzle go to /api/scores and are shared by every invited player. Without
+  // the API (another static server, or offline) only this browser's own bests are kept.
+  const SCORES_API = 'api/scores';
+  const LOCAL_SCORES_KEY = 'pokefightadex-scores';   // { "<ch>:<scene>": { moves, ms } }
+
+  const clockText = (ms) => {
+    const secs = Math.round(ms / 1000);
+    return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  };
+
+  /** Save the score. Returns { moves, time, mine, newMoves, newTime, shared }. */
+  async function postScore(puzzle, moves, ms) {
+    if (remoteSaves) {
+      try {
+        const r = await fetch(SCORES_API, {
+          method: 'POST',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json', ...playerHeaders() },
+          body: JSON.stringify({ puzzle, moves, ms }),
+        });
+        if (r.ok) return { ...(await r.json()), shared: true };
+      } catch { /* fall back to this browser */ }
+    }
+    let all = {};
+    try { all = JSON.parse(localStorage.getItem(LOCAL_SCORES_KEY)) || {}; } catch { /* start fresh */ }
+    const old = all[puzzle];
+    const newMoves = !old || moves < old.moves;
+    const newTime = !old || ms < old.ms;
+    const mine = { moves: newMoves ? moves : old.moves, ms: newTime ? ms : old.ms };
+    all[puzzle] = mine;
+    try { localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(all)); } catch { /* not kept */ }
+    return { moves: [], time: [], mine, newMoves, newTime, shared: false };
+  }
+
+  function scoreLine(board, moves, ms) {
+    const done = `You did it in ${moves} moves and ${clockText(ms)}!`;
+    if (board.newMoves && board.newTime) return `${done} Two new bests!`;
+    if (board.newMoves) return `${done} That's your fewest moves yet!`;
+    if (board.newTime) return `${done} That's your fastest time yet!`;
+    return `${done} Can you beat your best?`;
+  }
+
+  /** The records card over the stage: this try, your bests, and the top players. */
+  function showScores(board, moves, ms) {
+    const me = player ? player.name.toLowerCase() : '';
+    const card = [el('h3', 'scores-title', 'Puzzle records')];
+    const mine = el('p', 'scores-mine');
+    mine.append(
+      el('span', board.newMoves ? 'score-new' : '', `${moves} moves${board.newMoves ? ' ★ New best!' : ''}`),
+      el('span', board.newTime ? 'score-new' : '', `${clockText(ms)}${board.newTime ? ' ★ New best!' : ''}`),
+    );
+    card.push(mine);
+    if (board.shared) {
+      const lists = el('div', 'scores-lists');
+      const list = (heading, rows, value) => {
+        const box = el('div', 'scores-list');
+        const ol = el('ol');
+        for (const row of rows) {
+          const li = el('li', row.name === me ? 'score-me' : '');
+          li.append(el('span', 'score-name', title(row.name)), el('span', 'score-value', value(row)));
+          ol.append(li);
+        }
+        box.append(el('h4', '', heading), ol);
+        return box;
+      };
+      lists.append(
+        list('Fewest moves', board.moves, (row) => String(row.moves)),
+        list('Fastest', board.time, (row) => clockText(row.ms)),
+      );
+      card.push(lists);
+    } else if (board.mine) {
+      card.push(el('p', 'muted', `Your best: ${board.mine.moves} moves, ${clockText(board.mine.ms)}`));
+    }
+    scoresEl.replaceChildren(...card);
+    scoresEl.hidden = false;
   }
 
   // ---------- Starters ----------

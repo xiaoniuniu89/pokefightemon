@@ -54,6 +54,17 @@
  *            apply to each of your Pokémon as it comes out. The engine only says "Your shards glow!"
  *            and one line per Pokémon, so the scene before can explain the powers
  *            run defaults to lose, caught to win; the outcome is stored in flags['<chapter>:<scene>']
+ *   puzzle   { rooms: [{ puzzle, grid, text? }] or (s) => rooms, time, question, hint, hintAfter, skipAfter,
+ *            set, give, after, next, skip }   (one room can also be written { puzzle, grid, ... } directly)
+ *            Grid puzzles on the stage (puzzles.js, rules and grid characters per kind in puzzle-<kind>.js:
+ *            ice, boulder, switch, memory, picture). Rooms are played in order ("Room 2 of 3"), each with
+ *            its own `text` or else `question`. `time` is seconds for all rooms together: running out
+ *            goes back to room 1 with a full clock ("Time's up!"). You can't lose: "Start again"
+ *            restarts the room; `hint` (said with the lead Pokémon shown) comes after `hintAfter` tries
+ *            (resets or time-ups, default 3), a Skip button after `skipAfter` (default 5). Solving applies
+ *            `set`/`give` and plays `after` panels, then goes to `next`; skipping gives nothing and goes
+ *            to `skip` (default `next`). The outcome is stored in flags['<chapter>:<scene>']:
+ *            'solved' | 'skipped'. Keep grids small (at most 10 wide, 7 tall) so tiles stay big on phones
  *   end      chapter complete: { kind: 'end', final? }. With final: true (the last chapter) the end
  *            screen also shows the whole team (pictures, names, levels) and the shards found (N of 7)
  *
@@ -1234,7 +1245,7 @@
             ? { who: 'quill', text: 'These tunnels go on forever. A Pokémon that lives here could help us find the way. Let\'s catch one!' }
             : { who: 'quill', mon: 'caught', text: '{caught} seems to know the way. Let\'s follow it!' },
         ],
-        next: (s) => (CH45_canCatch(s) && s.flags['ch4:lesson'] !== 'caught' ? 'pickArea' : 'deeper'),
+        next: (s) => (CH45_canCatch(s) && s.flags['ch4:lesson'] !== 'caught' ? 'pickArea' : 'rockfall'),
       },
 
       pickArea: {
@@ -1303,7 +1314,79 @@
           field: 'caughtNickname',
           suggestions: CH45_nick,
           // Caught on the road (before the village): go on to Stonebrook; caught in the cave: go deeper.
-          next: (s) => (s.flags.gear ? 'deeper' : 'village'),
+          next: (s) => (s.flags.gear ? 'rockfall' : 'village'),
+        },
+      },
+
+      // The first puzzle in the game: three rooms under one clock, 18 + 29 + 26 = 73 moves at best.
+      // Room 1 (puzzle-boulder.js): push the far boulder right first, then down past the wall block and back
+      // left along the bottom (about 3 in 4 of the places you can reach can still be solved).
+      // Room 2 (puzzle-memory.js): 6 stones in order, 3 decoys; decoys and later stones block the short
+      // ways, so the walk between stones is a small maze. Room 3: 3 boulders (also about 3 in 4 solvable).
+      // time: 2.5 x 73 moves + 15 s per room = 227.5, rounded up to 230 (the stone show pauses the clock).
+      rockfall: {
+        bg: 'cave',
+        cast: ['quill'],
+        panels: [
+          { who: 'narrator', cast: [], text: 'Rumble! Rocks roll down and block the tunnel. The brown light is on the other side.' },
+          { who: 'quill', text: 'This cave has three rooms to get through. And the rocks are still moving. We have to be quick!' },
+          { who: 'quill', text: 'Some rooms have round marks that glow. Push the boulders onto them. You can\'t pull a boulder back!' },
+          { who: 'quill', text: 'One room has magic stones. They light up one at a time. Step on them in the same order. The wrong stone sends you back!' },
+          { who: 'narrator', mon: 'lead', text: '{lead} is ready to help. Let\'s go!' },
+        ],
+        prompt: {
+          kind: 'puzzle',
+          rooms: [
+            {
+              puzzle: 'boulder',
+              text: 'Push the rocks onto the glowing marks!',
+              grid: [
+                '##########',
+                '#x.......#',
+                '#....O...#',
+                '#O..##...#',
+                '#P..##...#',
+                '#x.......#',
+                '##########',
+              ],
+            },
+            {
+              puzzle: 'memory',
+              text: 'Watch the stones light up. Then step on them in the same order!',
+              grid: [
+                '#########',
+                '#P..#.o3#',
+                '#6#1..#.#',
+                '#.o.#2..#',
+                '#4...#o.#',
+                '#.#5....#',
+                '#########',
+              ],
+            },
+            {
+              puzzle: 'boulder',
+              text: 'Three rocks this time! Think before you push.',
+              grid: [
+                '#########',
+                '#x......#',
+                '#..O....#',
+                '#..#O...#',
+                '#...O...#',
+                '#x....Px#',
+                '#########',
+              ],
+            },
+          ],
+          time: 230,
+          question: 'Push the rocks onto the glowing marks!',
+          hint: 'Tips! A rock in a corner is stuck, so press Start again. Sometimes you must walk around a rock and push it from the other side. For the stones, say the order out loud as they light up. Stones you already found stay green and are safe to step on.',
+          give: { potion: 2 },
+          after: [
+            { who: 'narrator', mon: 'lead', text: 'Click! Clunk! The boulders sink into the marks, and a stone door slides open.' },
+            { who: 'quill', text: 'Great teamwork! And look, someone left a bag here. There are two Potions inside!' },
+            { who: 'narrator', text: 'You got 2 Potions!' },
+          ],
+          next: 'deeper',
         },
       },
 
@@ -1520,7 +1603,78 @@
               { who: 'narrator', text: 'The path winds up and up, slow and slippery.' },
             ];
         },
-        next: 'rival',
+        next: 'icePond',
+      },
+
+      // Ice slide puzzle (puzzle-ice.js), three rooms under one clock: 10 + 13 + 17 = 40 moves at best.
+      // Room 1 is plain ice and snow. Room 2 brings in cracked ice (no way to get stuck): break the one in the
+      // middle to make a hole, then use the hole to stop on the snow under the gap. Room 3 uses the same trick
+      // with more cracked ice (about 1 in 7 of the places you can reach are stuck, so Start again).
+      // time: 2.5 x 40 moves + 15 s per room = 145, rounded up to 150.
+      icePond: {
+        bg: 'snow',
+        cast: ['quill'],
+        panels: [
+          { who: 'narrator', cast: [], text: 'The path stops at a big frozen pond. It has three icy parts. The way up is on the other side.' },
+          { who: 'quill', text: 'Careful! Once you start sliding on ice, you can\'t stop until you bump into a rock.' },
+          { who: 'quill', text: 'But the white snow patches aren\'t slippery. If you land on snow, you stop right there.' },
+          { who: 'quill', text: 'Look, some ice has cracks in it! You can slide over cracked ice, but only once.' },
+          { who: 'quill', text: 'When you leave it, it breaks. Then there\'s a hole of cold water. You can\'t go in a hole. It stops you, just like a rock!' },
+          { who: 'quill', text: 'So think before you slide. And be quick. We need to cross all three parts before the clock runs out!' },
+        ],
+        prompt: {
+          kind: 'puzzle',
+          rooms: [
+            {
+              puzzle: 'ice',
+              text: 'Slide across the ice to the gap!',
+              grid: [
+                '######E##',
+                '##......#',
+                '#.#.....#',
+                '#_.....##',
+                '#_....#.#',
+                '#..#...P#',
+                '#########',
+              ],
+            },
+            {
+              puzzle: 'ice',
+              text: 'Cracked ice breaks after you cross it once!',
+              grid: [
+                '#####E###',
+                '#.#.....#',
+                '#.*.#_*.#',
+                '#._.*..##',
+                '#.*.##..#',
+                '#....P.##',
+                '#########',
+              ],
+            },
+            {
+              puzzle: 'ice',
+              text: 'Lots of cracks! Think before you slide.',
+              grid: [
+                '####E#####',
+                '#.....####',
+                '#..*....##',
+                '#_#.*...##',
+                '#..#.****#',
+                '#*P.#....#',
+                '##########',
+              ],
+            },
+          ],
+          time: 150,
+          question: 'Slide across the ice to the gap!',
+          hint: 'Here\'s a tip: a hole stops you, just like a rock. So break cracked ice on purpose to make a new place to stop! Stuck? Press Start again.',
+          give: { superpotion: 1 },
+          after: [
+            { who: 'narrator', text: 'You made it across! Something shiny is frozen in the snow by the gap.' },
+            { who: 'narrator', text: 'You got a Super Potion!' },
+          ],
+          next: 'rival',
+        },
       },
 
       rival: {
@@ -2281,7 +2435,76 @@
             ? 'That\'s one for me! Go on in, {player}. I\'ll guard the gate so nobody sneaks up on you.'
             : 'Easy. Go on in. I\'ll stay out here and stop anyone who comes back.' },
         ],
-        next: 'switches',
+        next: 'gateYard',
+      },
+
+      // Three rooms, one clock. 1: switch (puzzle-switch.js), 19 moves at best, 4 switch steps.
+      // 2: copy the picture (puzzle-picture.js), a lightning bolt on a 4x4 panel floor, 10 moves at best
+      // (you must cross one panel twice). 3: switch, 27 moves at best, 6 switch steps. No room can get
+      // stuck. time = 2.5 x 56 best moves + 15 s a room = 185, rounded up to 190.
+      gateYard: {
+        bg: 'plant',
+        cast: ['bo', 'quill'],
+        panels: [
+          { who: 'narrator', cast: [], text: 'Past the gate is the plant yard. It has three parts, with fences and red and blue gates everywhere.' },
+          { who: 'bo', text: 'Oh no! The Veil turned on the safety gates. Only one colour can be open at a time.' },
+          { who: 'bo', text: 'Step on a round switch to swap which gates are open. Red gates have stripes. Blue gates have dots.' },
+          { who: 'bo', text: 'The middle part has light panels on the floor. Step on one and it turns on or off. Make them match the picture!' },
+          { who: 'quill', text: 'There\'s a timer, too. If it runs out, the gates reset and we start again. Let\'s be quick!' },
+        ],
+        prompt: {
+          kind: 'puzzle',
+          rooms: [
+            {
+              puzzle: 'switch',
+              text: 'Swap the gates and get to the door!',
+              grid: [
+                '#########',
+                '#.PS#E#.#',
+                '#..##r..#',
+                '#.#..#S.#',
+                '#...#rb##',
+                '###b.S.##',
+                '#########',
+              ],
+            },
+            {
+              puzzle: 'picture',
+              text: 'Make the floor match the picture!',
+              grid: [
+                '#######',
+                '#P....#',
+                '#.oo+o#',
+                '#.o++o#',
+                '#.o++o#',
+                '#.o+oo#',
+                '#######',
+              ],
+            },
+            {
+              puzzle: 'switch',
+              text: 'The last part! Get to the plant door!',
+              grid: [
+                '#E########',
+                '#r.S...r.#',
+                '#.#####..#',
+                '##S..#...#',
+                '#..#.#S#.#',
+                '#P.#..rb.#',
+                '##########',
+              ],
+            },
+          ],
+          time: 190,
+          question: 'Get to the plant door!',
+          hint: 'Two tricks! Step off a switch and back on to swap the gates again. Step on a panel twice and it goes back.',
+          give: { xattack: 1 },
+          after: [
+            { who: 'bo', text: 'You did it! The door is open. Oh, look. One of the workers dropped this.' },
+            { who: 'narrator', text: 'You got an X Attack! It makes your Pokémon hit harder in a battle.' },
+          ],
+          next: 'switches',
+        },
       },
 
       switches: {
