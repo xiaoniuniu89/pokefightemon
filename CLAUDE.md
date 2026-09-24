@@ -276,7 +276,8 @@ from `file://` will not work.
 - **Balance**: keep wild pools from being all super effective against one
   starter type (see `WOODS_WILDS`, `RISKY_AREA` in `chapters.js`). Boss and
   trainer levels use `bossLv(d, nudge)`: starter level + d, plus a per-starter
-  nudge keyed by the starter's first type, capped at starter + 2 (Necrozma is
+  nudge keyed by the starter's first type, capped at starter + 2 and at the
+  team's average level + 1 (`teamAvg`) (Necrozma is
   the exception: starter + 10 with Attack -4 and Sp. Atk -5 foeMods, so it is
   long and tough but rarely knocks out a full-HP Pokémon in one hit). Losing to
   Necrozma goes to the ch10 `retry` scene: "Try again!" replays the battle

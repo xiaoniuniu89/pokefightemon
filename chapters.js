@@ -80,7 +80,8 @@
  * levelCap (optional): in this chapter, a Pokémon at or above it doesn't level up from a win (the engine says
  * "Ember is as strong as it can be for now!" once per battle), and camp catch-up never trains anyone past it.
  * Nothing is ever lowered. It only stops grinding in repeat-until-caught loops: a normal path stays below it.
- * Foe levels scale off the starter (bossLv / belowPlayer); bosses are at most the starter's level + 2, except
+ * Foe levels scale off the starter (bossLv / belowPlayer); bosses are at most the starter's level + 2 and the
+ * team's average level + 1, except
  * Necrozma (much higher level, with sleepy Attack/Sp. Atk foeMods: a long battle, not a scary one).
  */
 (() => {
@@ -395,8 +396,17 @@
   // Boss levels: the starter's level + d, plus a small per-starter nudge (keyed by its first type)
   // where the type matchups made one starter's battle much easier or harder than the others'.
   // The nudges come from the balance pass (see "Balance notes" in STORY_PLAN.md).
-  // Never more than 2 above the starter (the story bible's limit for bosses).
-  const bossLv = (d, nudge = {}) => (s) => Math.max(2, Math.min(s.mon.level + 2, s.mon.level + d + (nudge[s.mon.types[0]] || 0)));
+  // Never more than 2 above the starter (the story bible's limit for bosses), and never more than
+  // 1 above the team's average level, so a team of newer, lower-level Pokémon isn't knocked out in one hit.
+  const teamAvg = (s) => {
+    const all = [s.mon, ...(s.party || [])];
+    return all.reduce((sum, m) => sum + m.level, 0) / all.length;
+  };
+  const bossLv = (d, nudge = {}) => (s) => Math.max(2, Math.min(
+    s.mon.level + 2,
+    Math.round(teamAvg(s)) + 1,
+    s.mon.level + d + (nudge[s.mon.types[0]] || 0),
+  ));
 
   const chapter2 = {
     id: 'ch2',
@@ -2016,46 +2026,40 @@
       barlow: {
         bg: 'beach',
         cast: ['courier', 'fisher'],
-        give: { superpotion: 1 },
-        panels: [
+        // What Barlow brings depends on how you took the job back in chapter 2.
+        give: (s) => ({
+          superpotion: 1,
+          ...(({ eager: { pokeball: 3 }, curious: { potion: 1 }, bargain: { potion: 2, pokeball: 1 } })[s.flags.deal] || { pokeball: 2 }),
+        }),
+        set: (s) => (s.flags.deal === 'curious' ? { coveMap: true } : {}),
+        panels: (s) => [
           { who: 'narrator', cast: ['courier'], text: 'Rattle, rattle, bump! A delivery cart rolls along the sand. The driver jumps down. It\'s Barlow!' },
           { who: 'courier', text: '{player}! Look at you now! And look, my ankle is all better.' },
           { who: 'courier', text: 'You took that case all the way to Quill for me. I never said a proper thank you. So, here!' },
           { who: 'courier', text: 'First, a Super Potion. It heals way more than a normal Potion!' },
           { who: 'narrator', text: 'You got a Super Potion!' },
           { who: 'courier', text: 'And I have one more present for you…' },
+          ...(({
+            eager: [
+              { who: 'courier', text: 'You jumped right in to help me, so I brought you something to jump in with. Three Poké Balls!' },
+              { who: 'narrator', text: 'You got 3 Poké Balls!' },
+            ],
+            curious: [
+              { who: 'courier', text: 'You always ask good questions. So here is a Potion, and something better: an old map of the sea cave.' },
+              { who: 'courier', text: 'See this little X? It\'s a secret rock shelf. You can hide there and nobody sees you.' },
+              { who: 'narrator', text: 'You got a Potion and the Sea Cave Map!' },
+            ],
+            bargain: [
+              { who: 'courier', text: 'I know you like a good deal. So: two Potions, AND a Poké Ball for free. Don\'t tell my boss!' },
+              { who: 'narrator', text: 'You got 2 Potions and a Poké Ball!' },
+            ],
+          })[s.flags.deal] || [
+            { who: 'courier', text: 'Two Poké Balls, fresh from the shop!' },
+            { who: 'narrator', text: 'You got 2 Poké Balls!' },
+          ]),
+          { who: 'narrator', text: 'You say thank you, and Barlow gives you a big thumbs up.' },
         ],
-        prompt: {
-          kind: 'choice',
-          speak: true,
-          options: [
-            {
-              text: 'Thanks, Barlow!',
-              // What Barlow brings depends on how you took the job back in chapter 2.
-              give: (s) => ({ eager: { pokeball: 3 }, curious: { potion: 1 }, bargain: { potion: 2, pokeball: 1 } })[s.flags.deal] || { pokeball: 2 },
-              set: (s) => (s.flags.deal === 'curious' ? { coveMap: true } : {}),
-              after: (s) => ({
-                eager: [
-                  { who: 'courier', text: 'You jumped right in to help me, so I brought you something to jump in with. Three Poké Balls!' },
-                  { who: 'narrator', text: 'You got 3 Poké Balls!' },
-                ],
-                curious: [
-                  { who: 'courier', text: 'You always ask good questions. So here is a Potion, and something better: an old map of the sea cave.' },
-                  { who: 'courier', text: 'See this little X? It\'s a secret rock shelf. You can hide there and nobody sees you.' },
-                  { who: 'narrator', text: 'You got a Potion and the Sea Cave Map!' },
-                ],
-                bargain: [
-                  { who: 'courier', text: 'I know you like a good deal. So: two Potions, AND a Poké Ball for free. Don\'t tell my boss!' },
-                  { who: 'narrator', text: 'You got 2 Potions and a Poké Ball!' },
-                ],
-              })[s.flags.deal] || [
-                { who: 'courier', text: 'Two Poké Balls, fresh from the shop!' },
-                { who: 'narrator', text: 'You got 2 Poké Balls!' },
-              ],
-              next: 'hollis',
-            },
-          ],
-        },
+        next: 'hollis',
       },
 
       hollis: {
