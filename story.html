@@ -48,11 +48,18 @@
       <div class="title-actions">
         <button id="load-btn" class="btn" aria-expanded="false" aria-controls="save-list" hidden>Load game</button>
         <button id="new-btn" class="btn btn-ghost">New game</button>
+        <button id="puzzles-btn" class="btn btn-ghost" aria-expanded="false" aria-controls="puzzle-list" hidden>Puzzles</button>
       </div>
       <div id="save-list" class="save-list" hidden>
         <h3>Saved games</h3>
         <p id="save-where" class="muted"></p>
         <ul id="save-slots" class="save-slots"></ul>
+      </div>
+      <!-- Puzzle practice: puzzles your saves have reached, to replay for a better score -->
+      <div id="puzzle-list" class="save-list" hidden>
+        <h3>Puzzles</h3>
+        <p class="muted">Play again to beat your best!</p>
+        <ul id="puzzle-slots" class="save-slots"></ul>
       </div>
     </section>
 

@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Dev page: plays the story's puzzles straight from chapters.js, no save or invite needed. -->
+  <!-- Dev page (localhost only, elsewhere it goes to the story): plays the story's puzzles straight from chapters.js, no save or invite needed. -->
   <main class="story-page">
     <section class="story">
       <div class="story-bar">
@@ -36,6 +36,11 @@
   <script src="chapters.js"></script>
   <script>
     (() => {
+      // Dev only: players replay puzzles from the Story title screen, after the invite questions.
+      if (!['localhost', '127.0.0.1'].includes(location.hostname)) {
+        location.replace('story.html');
+        return;
+      }
       const $ = (sel) => document.querySelector(sel);
       const stage = $('#stage');
       const board = $('#puzzle');

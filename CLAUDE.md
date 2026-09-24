@@ -28,7 +28,7 @@ from `file://` will not work.
 | `music.js` | Story music: chiptune loops per backdrop and battle kind, plus jingles, synthesised with Web Audio (`window.StoryMusic`) |
 | `puzzles.js` | Grid puzzle core (`window.StoryPuzzles`): board, d-pad/keys/swipes, reset/skip, a BFS `solve()` that runs in Node |
 | `puzzle-<kind>.js` | One puzzle kind each (rules only, no DOM): ice slide, boulder push, colour switch gates, memory path, copy the picture |
-| `puzzles.html` | Dev page: plays every puzzle scene from `chapters.js` directly (no invite or save) |
+| `puzzles.html` | Dev page, localhost only (redirects to `story.html` elsewhere): plays every puzzle scene from `chapters.js` directly |
 | `chapters.js` | Story content only: cast, looks and chapters as scene graphs (`window.STORY_CHAPTERS`) |
 | `STORY_PLAN.md` | Plan for the 10-chapter story: shards, team of 4-6, switching, chapter outlines, build order. Read it before story work |
 | `server.js` | Zero-dependency static file server (MIME map, path-traversal guard) plus the `/api/saves` JSON save database, for local dev |
@@ -182,6 +182,10 @@ from `file://` will not work.
   the stage (`#stage-scores`: this try, "New best!", top 5 by moves and by time, shared by every
   invited player), then "Keep going" / "Try again for a better score" (the reward and `after` only
   come the first time). Without the API, bests stay in `localStorage` `pokefightadex-scores`.
+- **Puzzle practice**: the title screen's Puzzles button (after the invite questions) lists the
+  puzzles any of the player's saves has reached (`unlockedPuzzles`: flag set, a later chapter, or
+  that chapter finished), with their best. Play borrows the newest such save's state (names, look)
+  but never saves: the menu is off (`practicing`), and leaving reloads the page. Scores post as usual.
 - **Deploy**: Vercel (static files + `api/saves.js`), Upstash Redis added from
   the Vercel Storage tab (`UPSTASH_REDIS_REST_*` or `KV_REST_API_*` env vars).
   GitHub Pages still serves the static site but has no save API.

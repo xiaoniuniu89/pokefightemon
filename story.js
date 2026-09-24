@@ -960,58 +960,147 @@
    * the records card, with the choice to try again for a better score. The outcome is stored in
    * flags['<chapter>:<scene>'] as 'solved' or 'skipped'. */
   async function promptPuzzle(pr, scene) {
+    const key = `${chapter().id}:${s.scene}`;
+    for (;;) {
+      const { result, moves, ms } = await playPuzzle(pr, scene);
+      const first = s.flags[key] !== 'solved';
+      if (result === 'skipped') {
+        if (first) s.flags[key] = 'skipped';
+        return resolveNext(pr.skip ?? pr.next);
+      }
+      if (first) {
+        s.flags[key] = 'solved';
+        applyEffects(pr);
+        save();
+      }
+      const again = await scoreCard(key, moves, ms, ['Keep going', 'Try again for a better score']);
+      if (again === 1) continue;
+      if (first) await playPanels(pr.after, scene);
+      return resolveNext(pr.next);
+    }
+  }
+
+  /** One go at a puzzle prompt's rooms on the stage. Resolves { result, moves, ms } (see StoryPuzzles.run). */
+  async function playPuzzle(pr, scene) {
     const puzzles = window.StoryPuzzles;
     const rooms = typeof pr.rooms === 'function' ? pr.rooms(s)
       : pr.rooms || [{ puzzle: pr.puzzle, grid: typeof pr.grid === 'function' ? pr.grid(s) : pr.grid }];
     for (const r of rooms) {
       if (!puzzles || !puzzles.kinds[r.puzzle]) throw new Error(`Unknown puzzle "${r.puzzle}"`);
     }
-    const key = `${chapter().id}:${s.scene}`;
-    for (;;) {
-      renderStage({ bg: scene.bg });
-      const { result, moves, ms } = await puzzles.run({
-        rooms: rooms.map((r) => ({ ...r, text: r.text && fill(r.text) })),
-        time: pr.time,
-        question: fill(pr.question || 'Can you solve the puzzle?'),
-        hint: pr.hint && fill(pr.hint),
-        hintAfter: pr.hintAfter,
-        skipAfter: pr.skipAfter,
-        board: puzzleEl,
-        controls: choicesEl,
-        sprite: CAST.player.sprite(s),
-        paused: () => !menuEl.hidden,
-        show: (text) => show('narrator', text),
-        // After a hint or "Time's up!" the stage goes back to just the backdrop, under the board.
-        say: async (text) => {
-          await say('narrator', text);
-          renderStage({ bg: scene.bg });
-        },
-        hide: () => {
-          puzzleEl.hidden = true;
-          renderStage({ bg: scene.bg, cast: scene.cast, mon: 'lead' });
-        },
+    renderStage({ bg: scene.bg });
+    const out = await puzzles.run({
+      rooms: rooms.map((r) => ({ ...r, text: r.text && fill(r.text) })),
+      time: pr.time,
+      question: fill(pr.question || 'Can you solve the puzzle?'),
+      hint: pr.hint && fill(pr.hint),
+      hintAfter: pr.hintAfter,
+      skipAfter: pr.skipAfter,
+      board: puzzleEl,
+      controls: choicesEl,
+      sprite: CAST.player.sprite(s),
+      paused: () => !menuEl.hidden,
+      show: (text) => show('narrator', text),
+      // After a hint or "Time's up!" the stage goes back to just the backdrop, under the board.
+      say: async (text) => {
+        await say('narrator', text);
+        renderStage({ bg: scene.bg });
+      },
+      hide: () => {
+        puzzleEl.hidden = true;
+        renderStage({ bg: scene.bg, cast: scene.cast, mon: 'lead' });
+      },
+    });
+    clearChoices();
+    renderStage({ bg: scene.bg });
+    return out;
+  }
+
+  /** After a solve: post the score, show the records card, and resolve with the option picked. */
+  async function scoreCard(key, moves, ms, options) {
+    music.jingle('caught');
+    const board = await postScore(key, moves, ms);
+    showScores(board, moves, ms);
+    await show('narrator', scoreLine(board, moves, ms));
+    const pick = await choose(options);
+    scoresEl.hidden = true;
+    return pick;
+  }
+
+  // ---------- Puzzle practice (title screen) ----------
+  // Invited players can replay any puzzle one of their saves has reached, for a better score. It uses
+  // that save's names and look but never saves: the story state is only borrowed.
+  const puzzlesBtn = $('#puzzles-btn');
+  const puzzleListEl = $('#puzzle-list');
+  const puzzleSlotsEl = $('#puzzle-slots');
+  let practicing = false;
+
+  /** Every puzzle scene in story order: [{ ci, ch, id, scene, key }]. */
+  function allPuzzles() {
+    const out = [];
+    CHAPTERS.forEach((ch, ci) => {
+      for (const [id, scene] of Object.entries(ch.scenes)) {
+        if (scene.prompt && scene.prompt.kind === 'puzzle') out.push({ ci, ch, id, scene, key: `${ch.id}:${id}` });
+      }
+    });
+    return out;
+  }
+
+  /** Puzzles reached in any save (solved, skipped, or a later chapter), each with the newest such save. */
+  function unlockedPuzzles(saves) {
+    const out = [];
+    for (const p of allPuzzles()) {
+      const from = saves.find(({ state: st }) => st.flags[p.key] || st.chapter > p.ci
+        || (st.chapter === p.ci && st.scene === '__end'));
+      if (from) out.push({ ...p, state: from.state });
+    }
+    return out;
+  }
+
+  async function myBest(key) {
+    if (remoteSaves) {
+      try {
+        const r = await fetch(`${SCORES_API}?puzzle=${encodeURIComponent(key)}`, { cache: 'no-store', headers: playerHeaders() });
+        if (r.ok) return (await r.json()).mine;
+      } catch { /* shown as unknown */ }
+      return null;
+    }
+    try { return (JSON.parse(localStorage.getItem(LOCAL_SCORES_KEY)) || {})[key] || null; } catch { return null; }
+  }
+
+  function renderPuzzleList(saves) {
+    const list = unlockedPuzzles(saves);
+    puzzlesBtn.hidden = !list.length;
+    if (!list.length) puzzleListEl.hidden = true;
+    puzzleSlotsEl.replaceChildren(...list.map((p) => {
+      const li = el('li', 'save-slot');
+      const info = el('div', 'save-info');
+      const best = el('span', 'muted', 'Best: …');
+      info.append(el('strong', '', `${p.ch.title}: ${p.ch.subtitle}`), best);
+      myBest(p.key).then((b) => {
+        best.textContent = b ? `Best: ${b.moves} moves · ${clockText(b.ms)}` : 'No score yet';
       });
-      clearChoices();
-      renderStage({ bg: scene.bg });
-      const first = s.flags[key] !== 'solved';
-      if (result === 'skipped') {
-        if (first) s.flags[key] = 'skipped';
-        return resolveNext(pr.skip ?? pr.next);
-      }
-      music.jingle('caught');
-      if (first) {
-        s.flags[key] = 'solved';
-        applyEffects(pr);
-        save();
-      }
-      const board = await postScore(key, moves, ms);
-      showScores(board, moves, ms);
-      await show('narrator', scoreLine(board, moves, ms));
-      const again = await choose(['Keep going', 'Try again for a better score']);
-      scoresEl.hidden = true;
-      if (again === 1) continue;
-      if (first) await playPanels(pr.after, scene);
-      return resolveNext(pr.next);
+      const play = el('button', 'btn', 'Play');
+      play.addEventListener('click', () => practice(p));
+      li.append(info, play);
+      return li;
+    }));
+  }
+
+  async function practice(p) {
+    s = revive(p.state);
+    s.chapter = p.ci;
+    s.scene = p.id;
+    practicing = true;
+    menuBtn.hidden = true;     // no saving or loading from a borrowed state
+    startStory();
+    chapterTag.textContent = `${p.ch.title} · ${p.ch.subtitle} · Puzzle practice`;
+    music.play(p.scene.bg);
+    for (;;) {
+      const { result, moves, ms } = await playPuzzle(p.scene.prompt, p.scene);
+      if (result === 'solved' && (await scoreCard(p.key, moves, ms, ['Play again', 'Back to the title'])) === 0) continue;
+      location.reload();
+      return;
     }
   }
 
@@ -2130,6 +2219,7 @@
   // ---------- In-game menu ----------
   let menuReturnFocus = null;
   function toggleMenu(open) {
+    if (practicing) return;     // puzzle practice has no menu: its state is borrowed, never saved
     showTeamScreen(false);
     if (open) {
       menuReturnFocus = document.activeElement;
@@ -2333,6 +2423,7 @@
           }
           const left = await renderSaveList();
           updateTitle(left);
+          renderPuzzleList(left);
         });
         li.append(art, info, load, del);
         return li;
@@ -2360,6 +2451,11 @@
     } catch { /* storage unavailable */ }
     newBtn.addEventListener('click', newGame);
     loadBtn.addEventListener('click', () => toggleSaveList(saveListEl.hidden));
+    puzzlesBtn.addEventListener('click', () => {
+      puzzleListEl.hidden = !puzzleListEl.hidden;
+      puzzlesBtn.setAttribute('aria-expanded', String(!puzzleListEl.hidden));
+      if (!puzzleListEl.hidden) puzzleSlotsEl.querySelector('button')?.focus();
+    });
     $('#not-me-btn').addEventListener('click', () => {
       try { localStorage.removeItem(PLAYER_KEY); } catch { /* storage unavailable */ }
       location.reload();
@@ -2376,6 +2472,7 @@
     }
     const saves = await renderSaveList();
     updateTitle(saves);
+    renderPuzzleList(saves);
     if (flag === 'load' && saves.length) toggleSaveList(true);
     else (saves.length ? loadBtn : newBtn).focus();
   }
