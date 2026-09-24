@@ -20,8 +20,8 @@
  *            shard/take functions can read the flags it sets
  *   evolve   'starter', 'team' (everyone but the starter) or (s) => list of team members: after the
  *            panels, each one that can evolves by one stage ("What? Ember is evolving!"). Once per scene.
- *            Pokémon evolve at story moments, never by level: ch5 glow (starter), ch8 afterDrill (the
- *            rest of the team), ch10 shine (starter again)
+ *            Pokémon evolve at story moments, never by level: ch5 glow (starter), ch8 spring (the
+ *            rest of the team), ch10 ultra (starter again, after Necrozma, before the solo fight)
  *   (The first scene of each chapter also lets anyone more than 3 levels below the starter catch up.)
  *   prompt   what ends the scene (see below); scenes without one go to `next`
  *   next     scene id, or (s) => scene id
@@ -32,7 +32,10 @@
  *   name     { field: 'player' | 'rival' | 'nickname' | 'caughtNickname', suggestions, next }
  *   look     { options: [sprite keys], next }
  *   starter  { options: [species ids], next }
- *   battle   { trainer, foe, level, team, foeMoveLevel, foeMods(s), ai, boss, win, lose, run, caught }
+ *   battle   { trainer, foe, level, team, foeMoveLevel, foeMods(s), ai, boss, solo, hero, name, win, lose, run, caught }
+ *            solo: only the starter fights. hero: your Pokémon can't faint (it hangs on at 1 HP every time).
+ *            allyMods: stat stages your Pokémon gets as it comes out (one golden-glow line).
+ *            name: the foe's shown name (e.g. 'Ultra Necrozma' for a form).
  *            trainer: a cast key; leave it out for a wild Pokémon (you can run and throw Poké Balls;
  *            with a full team a ball says "Your team is full!" and isn't used, so hide catch
  *            options with `if: (s) => s.party.length < 5`)
@@ -80,9 +83,9 @@
  * levelCap (optional): in this chapter, a Pokémon at or above it doesn't level up from a win (the engine says
  * "Ember is as strong as it can be for now!" once per battle), and camp catch-up never trains anyone past it.
  * Nothing is ever lowered. It only stops grinding in repeat-until-caught loops: a normal path stays below it.
- * Foe levels scale off the starter (bossLv / belowPlayer); bosses are at most the starter's level + 2 and the
- * team's average level + 1, except
- * Necrozma (much higher level, with sleepy Attack/Sp. Atk foeMods: a long battle, not a scary one).
+ * Wild levels scale off the starter (belowPlayer); trainer and boss levels off your strongest Pokémon (bossLv /
+ * lvPlus), at most its level + 2 and the team's average level + 1 (or its level - 1 if it is far ahead), except
+ * Necrozma (strongest + GIANT_LV) and Ultra Necrozma (starter - 6, solo, boosted, unlosable).
  */
 (() => {
   'use strict';
@@ -393,19 +396,22 @@
   // Wild Pokémon are scaled to your partner, a level or two below it, so a lost battle
   // earlier on doesn't snowball.
   const belowPlayer = (lo, hi) => (s) => [Math.max(2, s.mon.level - lo), Math.max(2, s.mon.level - hi)];
-  // Boss levels: the starter's level + d, plus a small per-starter nudge (keyed by its first type)
-  // where the type matchups made one starter's battle much easier or harder than the others'.
-  // The nudges come from the balance pass (see "Balance notes" in STORY_PLAN.md).
-  // Never more than 2 above the starter (the story bible's limit for bosses), and never more than
-  // 1 above the team's average level, so a team of newer, lower-level Pokémon isn't knocked out in one hit.
+  // Boss levels: your strongest Pokémon's level + d, plus a small per-starter nudge (keyed by the
+  // starter's first type) where the type matchups made one starter's battle much easier or harder
+  // than the others'. The nudges come from the balance pass (see "Balance notes" in STORY_PLAN.md).
+  // Strongest, not starter: a team led by a Pokémon that outgrew the starter would otherwise steamroll.
+  // Never more than 2 above the strongest (the story bible's limit for bosses), and never more than
+  // 1 above the team's average level, so a team of newer, lower-level Pokémon isn't knocked out in one hit,
+  // unless one Pokémon is far ahead: then up to 1 below it.
   const teamAvg = (s) => {
     const all = [s.mon, ...(s.party || [])];
     return all.reduce((sum, m) => sum + m.level, 0) / all.length;
   };
+  const topLv = (s) => Math.max(s.mon.level, ...(s.party || []).map((m) => m.level));
   const bossLv = (d, nudge = {}) => (s) => Math.max(2, Math.min(
-    s.mon.level + 2,
-    Math.round(teamAvg(s)) + 1,
-    s.mon.level + d + (nudge[s.mon.types[0]] || 0),
+    topLv(s) + 2,
+    Math.max(Math.round(teamAvg(s)) + 1, topLv(s) - 1),
+    topLv(s) + d + (nudge[s.mon.types[0]] || 0),
   ));
 
   const chapter2 = {
@@ -742,7 +748,7 @@
   const chapter3 = {
     id: 'ch3',
     title: 'Chapter 3',
-    levelCap: 12, // wins stop levelling here (only grinding reaches it)
+    levelCap: 9, // wins stop levelling here (about where a player who wins everything is)
     subtitle: 'Mist on Glimmer Lake',
     start: 'dawn',
     summary: (s) => (shardSaved(s)
@@ -1067,7 +1073,7 @@
   const chapter4 = {
     id: 'ch4',
     title: 'Chapter 4',
-    levelCap: 15, // wins stop levelling here (only grinding reaches it)
+    levelCap: 10, // wins stop levelling here (about where a player who wins everything is)
     subtitle: 'Stonebrook Caves',
     start: 'road',
     summary: (s) => {
@@ -1523,7 +1529,7 @@
   const chapter5 = {
     id: 'ch5',
     title: 'Chapter 5',
-    levelCap: 18, // wins stop levelling here (only grinding reaches it)
+    levelCap: 11, // wins stop levelling here (about where a player who wins everything is)
     subtitle: 'Frost Peak',
     start: 'climb',
     summary: (s) => {
@@ -1999,7 +2005,7 @@
   const chapter6 = {
     id: 'ch6',
     title: 'Chapter 6',
-    levelCap: 21, // wins stop levelling here (only grinding reaches it)
+    levelCap: 12, // wins stop levelling here (about where a player who wins everything is)
     subtitle: 'Tidewater Cove',
     start: 'arrive',
     summary: (s) => `Old Hollis gave {player} a ${coveGiftName(s)} at Tidewater Cove. ` +
@@ -2349,7 +2355,7 @@
   const chapter7 = {
     id: 'ch7',
     title: 'Chapter 7',
-    levelCap: 25, // wins stop levelling here (only grinding reaches it)
+    levelCap: 13, // wins stop levelling here (about where a player who wins everything is)
     subtitle: 'Spark Town',
     start: 'arrive',
     summary: (s) => {
@@ -2764,7 +2770,7 @@
   const teamAll = (s) => [s.mon, ...(s.party || [])].filter(Boolean);
   const nameOf = (m) => m.nickname || m.species;
   // Foe levels follow your starter. Bosses stay at most 2 above it.
-  const lvPlus = (d) => (s) => Math.max(2, s.mon.level + d);
+  const lvPlus = (d) => (s) => Math.max(2, topLv(s) + d);
   const shardCount = (n) => (n === 1 ? 'one shard' : `${n} shards`);
   const shardList = (keys) => {
     const names = keys.map((k) => SHARD_NAMES[k]);
@@ -2788,11 +2794,13 @@
     grass: 'Fire beats Grass, so keep {mon} safe. Let a friend go first.',
     water: 'Water beats Fire. {mon} is going to love this place!',
   };
-  // Admin Rook: three Pokémon, four if your team has at least four.
+  // Admin Rook: three Pokémon, four if your team has at least four, five if it has at least five.
+  // By now the whole team has evolved, so his Pokémon sit near your starter's level.
   const rookTeam = (s) => {
-    const nudge = { fire: 1, grass: -2, water: -2 };
-    const team = [{ id: 109, level: bossLv(-3, nudge) }, { id: 228, level: bossLv(-2, nudge) }, { id: 126, level: bossLv(0, nudge) }];  // Koffing, Houndour, Magmar
-    if (teamAll(s).length >= 4) team.splice(2, 0, { id: 322, level: bossLv(-2, nudge) });                                    // + Numel
+    const nudge = { fire: 1, grass: -1, water: -1 };
+    const team = [{ id: 110, level: bossLv(-1, nudge) }, { id: 228, level: bossLv(0, nudge) }, { id: 126, level: bossLv(1, nudge) }];  // Weezing, Houndour, Magmar
+    if (teamAll(s).length >= 4) team.splice(2, 0, { id: 322, level: bossLv(0, nudge) });                                     // + Numel
+    if (teamAll(s).length >= 5) team.splice(1, 0, { id: 219, level: bossLv(-1, nudge) });                                    // + Magcargo
     return team;
   };
   const emberWon = (s) => s.flags['ch8:rook'] === 'win';
@@ -2806,7 +2814,7 @@
   const chapter8 = {
     id: 'ch8',
     title: 'Chapter 8',
-    levelCap: 28, // wins stop levelling here (only grinding reaches it)
+    levelCap: 15, // wins stop levelling here (about where a player who wins everything is)
     subtitle: 'Ember Mountain',
     start: 'foot',
     summary: (s) => (emberWon(s)
@@ -2896,9 +2904,6 @@
       afterDrill: {
         bg: 'volcano',
         cast: ['quill'],
-        // The training pays off: the rest of the team evolves (the starter did in chapter 5), except a
-        // Pokémon that only just joined in the drill.
-        evolve: (s) => s.party.filter((m, i) => !(s.flags['ch8:drill'] === 'caught' && i === s.party.length - 1)),
         panels: (s) => [
           ({
             win: { who: 'quill', text: 'Great work! The {foe} looks happy. I think it just wanted to play.' },
@@ -2911,6 +2916,23 @@
             power: { who: 'quill', text: 'All that rock smashing paid off. Your team hits really hard now.' },
             guard: { who: 'quill', text: 'All that dodging paid off. Your team is really hard to hit now.' },
           })[s.flags['ch8:style']] || { who: 'quill', text: 'Your team is getting stronger every day.' },
+        ],
+        next: (s) => (s.party.length ? 'spring' : 'path'),
+      },
+
+      // The training pays off: resting in the shard-warmed spring, the rest of the team evolves (the
+      // starter did in chapter 5), except a Pokémon that only just joined in the drill.
+      spring: {
+        bg: 'volcano',
+        cast: ['quill'],
+        // Saves from when this happened in afterDrill have already evolved.
+        evolve: (s) => (s.flags['evolve:ch8:afterDrill'] ? []
+          : s.party.filter((m, i) => !(s.flags['ch8:drill'] === 'caught' && i === s.party.length - 1))),
+        panels: [
+          { who: 'narrator', cast: [], text: 'Halfway up, you find a warm spring. Steam rises from the water. Everyone sits down for a rest.' },
+          { who: 'quill', text: 'Feel that? The water is warm because the Ember Shard is right above us. Its power soaks into everything here.' },
+          { who: 'quill', text: 'Your team trained so hard today. Hard work plus shard power can help Pokémon grow up.' },
+          { who: 'narrator', cast: [], text: '{team} splash in the warm water. The steam starts to sparkle around them…' },
         ],
         next: 'path',
       },
@@ -3133,12 +3155,17 @@
   // Each vault battle wins back one shard the Veil holds: the Shadow Shard first, then any you lost.
   // At most four vault battles, so a player who lost every shard isn't stuck here for ages.
   const HIDEOUT_MAX_ROUNDS = 4;
+  // Two Pokémon each at your starter's level, plus a third when your team has four or more.
   const HIDEOUT_ROUNDS = [
-    [{ id: 262, level: lvPlus(-2) }, { id: 42, level: lvPlus(-1) }],  // Mightyena, Golbat
-    [{ id: 109, level: lvPlus(-2) }, { id: 215, level: lvPlus(-2) }],  // Koffing, Sneasel
-    [{ id: 88, level: lvPlus(-2) }, { id: 228, level: lvPlus(-1) }],   // Grimer, Houndour
-    [{ id: 200, level: lvPlus(-2) }, { id: 110, level: lvPlus(-1) }],  // Misdreavus, Weezing
+    [{ id: 262, level: lvPlus(0) }, { id: 42, level: lvPlus(1) }, { id: 198, level: lvPlus(0) }],   // Mightyena, Golbat, Murkrow
+    [{ id: 109, level: lvPlus(0) }, { id: 215, level: lvPlus(1) }, { id: 97, level: lvPlus(0) }],   // Koffing, Sneasel, Hypno
+    [{ id: 88, level: lvPlus(0) }, { id: 228, level: lvPlus(1) }, { id: 24, level: lvPlus(0) }],    // Grimer, Houndour, Arbok
+    [{ id: 200, level: lvPlus(0) }, { id: 110, level: lvPlus(1) }, { id: 262, level: lvPlus(0) }],  // Misdreavus, Weezing, Mightyena
   ];
+  const hideoutTeam = (s) => {
+    const team = HIDEOUT_ROUNDS[(Math.max(1, hideoutRound(s)) - 1) % HIDEOUT_ROUNDS.length];
+    return teamAll(s).length >= 4 ? team : team.slice(0, 2);
+  };
   const hideoutRound = (s) => s.flags['ch9:round'] || 0;
   const hideoutTarget = (s) => {
     const held = veilHeld(s);
@@ -3149,7 +3176,7 @@
   const chapter9 = {
     id: 'ch9',
     title: 'Chapter 9',
-    levelCap: 32, // wins stop levelling here (only grinding reaches it)
+    levelCap: 17, // wins stop levelling here (about where a player who wins everything is)
     subtitle: 'The Veil\'s Hideout',
     start: 'door',
     summary: (s) => {
@@ -3234,7 +3261,7 @@
         prompt: {
           kind: 'battle',
           trainer: 'grunt',
-          team: [{ id: 41, level: lvPlus(-2) }, { id: 109, level: lvPlus(-2) }], // Zubat, Koffing
+          team: [{ id: 41, level: lvPlus(0) }, { id: 109, level: lvPlus(0) }], // Zubat, Koffing
           win: 'sneak',
           lose: 'sneak',
         },
@@ -3280,7 +3307,7 @@
         prompt: {
           kind: 'battle',
           trainer: 'grunt',
-          team: [{ id: 96, level: lvPlus(-1) }, { id: 20, level: lvPlus(-1) }], // Drowzee, Raticate
+          team: [{ id: 96, level: lvPlus(0) }, { id: 20, level: lvPlus(1) }], // Drowzee, Raticate
           win: 'cells',
           lose: 'cells',
         },
@@ -3364,7 +3391,7 @@
         prompt: {
           kind: 'battle',
           trainer: 'grunt',
-          team: (s) => HIDEOUT_ROUNDS[(Math.max(1, hideoutRound(s)) - 1) % HIDEOUT_ROUNDS.length],
+          team: hideoutTeam,
           // The Shadow Shard round is this chapter's shard boss (2 levels); winning back a lost one gives 1.
           shardBoss: (s) => s.flags['ch9:target'] === 'shadow',
           win: 'claim',
@@ -3514,15 +3541,18 @@
 
   // ---------- Chapter 10: Beneath the Mountain (the finale) ----------
   const NECROZMA = 800;
-  const GIANT_LV = 4;          // Necrozma: starter level + this
+  const ULTRA = 10157;         // Ultra Necrozma (a form: PokéAPI has no species page for it)
+  const GIANT_LV = 6;          // Necrozma: starter level + this
   const GIANT_MOVE_LEVEL = 30; // its learnset stops here
-  // Master Nox: four Pokémon, top one at most 2 levels above your starter.
-  const NOX_TEAM = [
-    // Charmander walls his Fire and Dark moves, so his team comes higher for it than for the others.
-    { id: 302, level: bossLv(-2, { fire: 2, grass: -3, water: -2 }) }, // Sableye
-    { id: 110, level: bossLv(-3, { fire: 1, grass: -3, water: -2 }) }, // Weezing
-    { id: 229, level: bossLv(-2, { fire: 1, grass: -3, water: -2 }) }, // Houndoom
-    { id: 359, level: bossLv(-2, { fire: 1, grass: -3, water: -3 }) }, // Absol
+  // Master Nox: four Pokémon, five if your team has at least five, top one at most 2 levels above
+  // your starter. Charmander walls his Fire and Dark moves, so his team comes higher for it.
+  const NOX_NUDGE = { fire: 1, grass: -1, water: -1 };
+  const NOX_TEAM = (s) => [
+    { id: 302, level: bossLv(0, NOX_NUDGE) },  // Sableye
+    { id: 110, level: bossLv(-1, NOX_NUDGE) }, // Weezing
+    ...(teamAll(s).length >= 5 ? [{ id: 169, level: bossLv(0, NOX_NUDGE) }] : []), // Crobat
+    { id: 229, level: bossLv(1, NOX_NUDGE) },  // Houndoom
+    { id: 359, level: bossLv(1, NOX_NUDGE) },  // Absol
   ];
   const giantResult = (s) => s.flags['ch10:giant'];
   const noxBeaten = (s) => s.flags['ch10:nox'] === 'win';
@@ -3531,7 +3561,7 @@
   const chapter10 = {
     id: 'ch10',
     title: 'Chapter 10',
-    levelCap: 36, // wins stop levelling here (only grinding reaches it)
+    levelCap: 19, // wins stop levelling here (about where a player who wins everything is)
     subtitle: 'Beneath the Mountain',
     start: 'down',
     summary: (s) => {
@@ -3740,7 +3770,6 @@
             return [
               { who: 'narrator', text: 'You don\'t have any shards. But that\'s okay.' },
               { who: 'narrator', mon: 'player', text: 'You have {team}, and friends all around you. That is its own kind of power!' },
-              { who: 'narrator', mon: 'player', text: 'Everyone cheers for {mon}. Then {mon} starts to glow!' },
             ];
           }
           return [
@@ -3752,11 +3781,8 @@
             ...(s.flags.peeked
               ? [{ who: 'narrator', mon: 'player', text: '{mon}\'s eyes flash purple. It can hear the shards singing. It isn\'t scared. It feels ready.' }]
               : []),
-            { who: 'narrator', mon: 'player', text: 'The light wraps around {mon}. It gets brighter and brighter!' },
           ];
         },
-        // The biggest moment of the story: the starter evolves one last time.
-        evolve: 'starter',
         next: 'giant',
       },
 
@@ -3777,8 +3803,52 @@
             ...(s.flags['ch10:plan'] === 'cheer' ? { attack: -1 } : {}),
             accuracy: -Math.min(3, s.flags['ch10:retries'] || 0),
           }),
-          win: 'ending',
+          win: 'ultra',
           lose: 'retry',
+        },
+      },
+
+      // Necrozma drinks in all the light and turns into Ultra Necrozma. Your starter answers by
+      // evolving one last time, and the two of them finish it alone.
+      ultra: {
+        bg: 'depths',
+        cast: [],
+        panels: [
+          { who: 'narrator', mon: NECROZMA, text: 'Necrozma falls down. Everyone cheers! But wait… something is wrong.' },
+          { who: 'narrator', mon: NECROZMA, text: 'Necrozma starts to pull in all the light in the cave. The lamps go dim. It gets brighter and brighter!' },
+          { who: 'narrator', mon: ULTRA, text: 'FLASH! Necrozma turns into Ultra Necrozma! It shines like a golden star!' },
+          { who: 'sable', cast: ['sable', 'quill'], text: 'Ultra Necrozma! I only ever read about it in old books!' },
+          { who: 'narrator', mon: 'lead', text: 'Your team is so tired. They can\'t fight any more. Only {mon} steps forward.' },
+          { who: 'narrator', mon: 'player', text: '{mon} looks back at you. You nod. The light of the shards wraps around {mon}!' },
+        ],
+        // The biggest moment of the story: the starter evolves one last time (saves from before
+        // this scene existed did it in `shine`).
+        evolve: (s) => (s.flags['evolve:ch10:shine'] ? [] : [s.mon]),
+        next: 'final',
+      },
+
+      final: {
+        bg: 'depths',
+        cast: [],
+        panels: [
+          { who: 'narrator', mon: 'player', text: 'It\'s just you and {mon} now. Everyone you know is cheering behind you.' },
+          { who: 'rival', cast: ['rival'], text: 'This is it, {player}! Show it what you two can do!' },
+        ],
+        prompt: {
+          kind: 'battle',
+          foe: ULTRA,
+          name: 'Ultra Necrozma',
+          // Not a serious fight: a victory lap for the freshly evolved starter. It fights alone, is
+          // boosted a lot, and Ultra Necrozma is far below its level, so it goes down in a hit or two.
+          // `hero` is a safety net: the starter can't faint even on an unlucky crit.
+          solo: true,
+          hero: true,
+          boss: true,
+          level: (s) => Math.max(2, s.mon.level - 6),
+          allyMods: { attack: 3, 'special-attack': 3, speed: 3, defense: 2, 'special-defense': 2 },
+          ai: 'trainer',
+          win: 'ending',
+          lose: 'ending',
         },
       },
 
@@ -3812,8 +3882,11 @@
         bg: 'depths',
         cast: [],
         panels: (s) => {
+          const fade = s.flags['ch10:final'] === 'win'
+            ? [{ who: 'narrator', mon: ULTRA, text: 'Ultra Necrozma lets out one last cry. Its golden light fades away…' }]
+            : [];
           if (giantResult(s) === 'win' && allShards(s)) {
-            return [
+            return [...fade,
               { who: 'narrator', mon: NECROZMA, text: 'Necrozma stops. It looks at you. It looks at the seven shards, spinning in the air.' },
               { who: 'narrator', text: 'Click, click, click! The shards join up, one by one, into a single shining crystal!' },
               { who: 'narrator', mon: NECROZMA, text: 'The crystal floats over to Necrozma. It glows warm and bright, like sunshine.' },
@@ -3823,7 +3896,7 @@
             ];
           }
           if (giantResult(s) === 'win') {
-            return [
+            return [...fade,
               { who: 'narrator', mon: NECROZMA, text: 'Necrozma slows down. It looks tired. Its purple eyes blink slowly.' },
               { who: 'narrator', mon: NECROZMA, text: 'It curls up, and new crystal grows around it like a warm blanket. It\'s going back to sleep.' },
               { who: 'narrator', text: (st) => `The ${veilHeld(st).length === 1 ? 'missing shard sinks' : 'missing shards sink'} deep into the rock, where nobody can ever find ${veilHeld(st).length === 1 ? 'it' : 'them'} again.` },

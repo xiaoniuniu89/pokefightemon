@@ -303,11 +303,12 @@ is fine. Players who lose a lot aren't stuck: foes scale down with them, party m
 catch up at camp, and the comeback boost and last stand help. There are no fixed-level
 foes after Tobi's Lv 4 Rattata in chapter 2.
 
-**Level caps** (`levelCap`): ch1 6, ch2 8, ch3 11, ch4 14, ch5 17, ch6 20, ch7 23, ch8 26,
-ch9 30, ch10 32. The simulated normal path hit a cap in fewer than 1 run in 1000. A player
-who knocks out wild Pokémon over and over in catch loops ends up at about the caps (about
-Lv 24-27 in chapter 10). With the starter at the cap, no foe goes above cap + 2, except Necrozma (cap + 10 or 11,
-with weak attacks).
+**Level caps** (`levelCap`): ch1 6, ch2 8, ch3 9, ch4 10, ch5 11, ch6 12, ch7 13, ch8 15,
+ch9 17, ch10 19: about where a player who wins everything is. They used to be much higher
+(ch8 26, ch10 32), which let one Pokémon that led every fight run far ahead of the team and
+steamroll chapters 8-10 (playtest). Foes now also scale off the strongest Pokémon, not the
+starter. With the strongest at the cap, no trainer foe goes above cap + 2, except Necrozma
+(cap + 6). Not re-simulated after this change.
 
 **Tuning knobs used:** `bossLv(d, nudge)` in `chapters.js` (starter level + d, plus a
 small per-starter nudge where type matchups made one starter's battle much easier or

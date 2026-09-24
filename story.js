@@ -1520,8 +1520,8 @@
       const base = Math.floor(Math.floor((Math.floor((2 * att.level) / 5 + 2) * move.power * a) / d) / 50) + 2;
       const dmg = Math.max(1, Math.floor(base * stab * mult * (crit ? 1.5 : 1) * roll));
       def.hp = Math.max(0, def.hp - dmg);
-      // Hero moment: once per chapter, your partner survives a knockout blow.
-      const lastStand = def.hp === 0 && sides.isAlly(def) && sides.claimLastStand();
+      // Hero moment: once per chapter, your partner survives a knockout blow (every time in a `hero` battle).
+      const lastStand = def.hp === 0 && sides.isAlly(def) && (sides.hero || sides.claimLastStand());
       if (lastStand) def.hp = 1;
       flash(defImg, 'hurt', 500);
       if (mult > 1) flash(stageEl, 'shake', 400);
@@ -1531,7 +1531,7 @@
       if (mult > 1) await say(null, 'It\'s super effective!', 1000);
       else if (mult < 1) await say(null, 'It\'s not very effective…', 1000);
       if (lastStand) {
-        await say(null, `${def.label} hung on! ${def.label} refused to give up on ${s.player}!`, 1600);
+        await say(null, sides.hero ? heroLine(sides, def) : `${def.label} hung on! ${def.label} refused to give up on ${s.player}!`, 1600);
         const healed = Math.min(def.maxHp - def.hp, Math.ceil(def.maxHp * LAST_STAND_HEAL));
         def.hp += healed;
         sides.update();
@@ -1875,6 +1875,14 @@
     return [{ id: pickFoe(pr).id, level: pickLevel(pr.level) }];
   }
 
+  /** What's said each time your Pokémon hangs on in a `hero` battle (a new line each time, then round again). */
+  const HERO_LINES = [
+    (n) => `${n} hung on! It will never give up on ${s.player}!`,
+    (n) => `Everyone is cheering! ${n} gets back up!`,
+    (n) => `${n} is hurt, but it stands tall. It's not over yet!`,
+  ];
+  const heroLine = (bt, c) => HERO_LINES[bt.heroes++ % HERO_LINES.length](c.label);
+
   let battleOn = false; // true while a battle runs (the Team screen says changes wait for the next one)
 
   /** Set up the battle: both sides as lists of slots. Combatants are built lazily on first send-out. */
@@ -1882,12 +1890,14 @@
     const wild = !pr.trainer;
     const trainer = wild ? '' : fill(CAST[pr.trainer].name);
     const foeSlots = foeTeam(pr).map((f) => ({ id: f.id, level: f.level, c: null, fainted: false, battled: false }));
-    const allySlots = team().map((mon) => ({ mon, c: null, fainted: false, battled: false }));
+    const allySlots = (pr.solo ? [s.mon] : team()).map((mon) => ({ mon, c: null, fainted: false, battled: false }));
     if (!allySlots.length) throw new Error('No Pokémon to battle with');
     const side = (slots) => ({ slots, slot: null, get c() { return this.slot && this.slot.c; } });
     const boss = !!pr.boss;
     const bt = {
       pr, wild, trainer, boss,
+      hero: !!pr.hero, // your Pokémon can't faint: it always hangs on at 1 HP
+      heroes: 0,
       canRun: wild && !boss, // bosses: no running, no Poké Balls, and shard powers apply
       canCatch: wild && !boss,
       started: false, // after the intro, slow builds show a "getting ready" line
@@ -1915,8 +1925,9 @@
     if (isAlly) return combatant(slot.mon, slot.mon.level, monName(slot.mon));
     const fml = bt.pr.foeMoveLevel;
     const c = await combatant({ id: slot.id }, slot.level, '', fml != null ? Math.min(fml, slot.level) : slot.level);
+    if (bt.pr.name) c.species = bt.pr.name;
     c.label = bt.boss && bt.wild ? c.species : bt.wild ? `Wild ${c.species}` : `${bt.trainer}'s ${c.species}`;
-    if (bt.wild) c.captureRate = (await fetchJson(`${API}/pokemon-species/${slot.id}`)).capture_rate;
+    if (bt.canCatch) c.captureRate = (await fetchJson(`${API}/pokemon-species/${slot.id}`)).capture_rate;
     return c;
   }
 
@@ -1951,6 +1962,10 @@
   function entryBoosts(bt, isAlly) {
     const list = [];
     if (!isAlly && bt.foeMods) list.push({ mods: bt.foeMods });
+    // `allyMods`: a story power-up for your Pokémon (the finale's golden glow), said in one line.
+    if (isAlly && bt.pr.allyMods) {
+      list.push({ mods: bt.pr.allyMods, line: (c) => `${c.label} shines with golden light! It feels super strong!` });
+    }
     if (bt.boss) {
       const mods = shardMods(isAlly ? 'team' : 'boss');
       const names = Object.keys(mods).map((k) => STAT_LABEL[k]);

@@ -122,8 +122,9 @@ from `file://` will not work.
   'team' or a function) runs after its panels (`evolveScene`, once per scene via
   `flags['evolve:<ch>:<scene>']`): one stage along the PokéAPI evolution chain
   (first branch), glow animation, then `id`/`species`/`types` change; nickname
-  and level stay. Beats: ch5 `glow` (starter), ch8 `afterDrill` (the rest,
-  except a Pokémon just caught there), ch10 `shine` (starter, before Necrozma).
+  and level stay. Beats: ch5 `glow` (starter), ch8 `spring` (the rest, resting in a
+  shard-warmed spring, except a Pokémon just caught in the drill), ch10 `ultra` (starter, after
+  Necrozma turns into Ultra Necrozma; old saves that evolved in `shine` skip it).
 - **Console layout**: choices and battle menus always sit under the text,
   full width. Plain choices are one row side by side (up to 3), on phones
   (<=499px) 2 across with a 3rd spanning the row; buttons are >=44px and text
@@ -275,18 +276,25 @@ from `file://` will not work.
   Attack/Sp. Atk to the first Pokémon sent out in the next battle.
 - **Balance**: keep wild pools from being all super effective against one
   starter type (see `WOODS_WILDS`, `RISKY_AREA` in `chapters.js`). Boss and
-  trainer levels use `bossLv(d, nudge)`: starter level + d, plus a per-starter
-  nudge keyed by the starter's first type, capped at starter + 2 and at the
-  team's average level + 1 (`teamAvg`) (Necrozma is
-  the exception: starter + 10 with Attack -4 and Sp. Atk -5 foeMods, so it is
-  long and tough but rarely knocks out a full-HP Pokémon in one hit). Losing to
-  Necrozma goes to the ch10 `retry` scene: "Try again!" replays the battle
-  (healed, comeback +1, last stand already used), "Let your friends help" goes
-  to the gentle loss ending. The numbers
-  come from a simulated naive player (see "Balance notes" in `STORY_PLAN.md`);
+  trainer levels use `bossLv(d, nudge)`: your strongest Pokémon's level (`topLv`) + d,
+  plus a per-starter nudge keyed by the starter's first type, capped at strongest + 2 and at
+  the team's average level + 1 (`teamAvg`), loosened to strongest - 1 when one Pokémon is far
+  ahead; `lvPlus(d)` is strongest + d. Scaling off the strongest, not the starter, stops a
+  catch that outgrows the starter from steamrolling. From chapter 8 on the whole team has
+  evolved, so foes sit at about that level (not below), and Rook, the ch9 vault grunts and Nox
+  bring an extra Pokémon when your team is big (`teamAll(s).length`). Necrozma is strongest +
+  `GIANT_LV` (6), learnset capped at Lv 30. Losing to Necrozma goes to the ch10 `retry`
+  scene: "Try again!" replays the battle (healed, comeback +1, last stand already used),
+  "Let your friends help" goes to the gentle loss ending. Beating it goes to `ultra` (it
+  becomes Ultra Necrozma, id 10157, a form with no species page; the starter evolves) then
+  `final`: a victory lap, not a real fight. That battle prompt has `solo` (only the starter),
+  `hero` (can't faint: hangs on at 1 HP every time, lines in `HERO_LINES`), `allyMods` (+3
+  Attack/Sp. Atk/Speed, +2 defences, one golden line) and `name: 'Ultra Necrozma'`, with the
+  foe at starter - 6. The numbers come from a simulated naive player (see "Balance notes" in `STORY_PLAN.md`);
   re-check win rates after changing a team. Levels grow slowly (a win only
   levels Pokémon that didn't faint), so the starter is about Lv 12-14 in
-  chapter 10, and each chapter's `levelCap` sits well above the normal path.
+  chapter 10, and each chapter's `levelCap` sits at about a win-everything player's level
+  (ch7 13, ch8 15, ch9 17, ch10 19), so one Pokémon can't run far ahead of the team.
 
 ## Conventions
 
