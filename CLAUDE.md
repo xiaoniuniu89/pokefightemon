@@ -116,7 +116,8 @@ from `file://` will not work.
   (<=499px) 2 across with a 3rd spanning the row; buttons are >=44px and text
   wraps inside them. The number badge hides on phones. While a menu shows the
   text box shrinks to fit. Exceptions: `.choices-cards` (looks, starters)
-  overlay the picture, and `.choices-name` docks right of the text above 640px.
+  overlay the picture; `.choices-name` sits under the text too (3 suggestions
+  in a row, then the type-a-name field).
   The console must fit without scrolling at 360px wide and 1280x720; keep
   option text under ~40 characters.
 - **State** (`s`): save `slot` id, names, look, starter (`mon`, with nickname

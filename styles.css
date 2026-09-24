@@ -514,10 +514,9 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
   border: 3px solid #1c1e21; border-radius: 0 0 var(--radius) var(--radius);
 }
 /* Menus (choices, moves, bag) always sit under the text, full width, so nothing squashes.
-   While a menu shows, the text box shrinks to fit so the whole console stays on screen.
-   The name form is the one exception: on wide screens it docks on the right (see below). */
-.console:has(.choices:not(:empty):not(.choices-cards):not(.choices-name)) .dialogue { min-height: 0; padding-bottom: 12px; }
-.console:has(.choices:not(:empty):not(.choices-cards):not(.choices-name)) .line { min-height: 1.5em; }
+   While a menu shows, the text box shrinks to fit so the whole console stays on screen. */
+.console:has(.choices:not(:empty):not(.choices-cards)) .dialogue { min-height: 0; padding-bottom: 12px; }
+.console:has(.choices:not(:empty):not(.choices-cards)) .line { min-height: 1.5em; }
 .dialogue {
   position: relative; background: transparent; color: var(--text); cursor: pointer;
   border-radius: 0 0 0 var(--radius); padding: 16px 20px 18px; min-height: 100px;
@@ -572,7 +571,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .card-choice:hover:not(:disabled), .card-choice:focus-visible { transform: translateY(-3px); }
 .card-choice img { width: 100%; max-width: 120px; aspect-ratio: 1; object-fit: contain; image-rendering: auto; }
 .card-choice .choice-text { font-weight: 700; }
-.choices-name { grid-template-columns: repeat(3, 1fr); }
+.choices-name { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.choices-name .choice { min-width: 0; min-height: 44px; padding: 6px 10px; }
 .choices-name .name-form, .choices-name .choice-plain { grid-column: 1 / -1; }
 .name-form { display: flex; gap: 8px; }
 .name-form input {
@@ -580,11 +580,6 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
   border: 2px solid var(--border); background: var(--card); color: var(--text);
 }
 .name-form input:focus { outline: none; border-color: var(--accent); }
-/* Name form: on wide screens it docks to the right of the question (it is too tall to go under). */
-@media (min-width: 641px) {
-  .console:has(.choices-name:not(:empty)) { grid-template-columns: minmax(0, 1fr) minmax(0, 52%); }
-  .console .choices-name { border-top: none; border-left: 3px solid #1c1e21; }
-}
 @media (max-width: 499px) {
   /* Phones: 2 across, a 3rd (last) option takes the full width. Never one tall column. */
   .choices:not(.choices-cards):not(.choices-name):not(.choices-moves) {
@@ -602,7 +597,9 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
   .dialogue { padding: 14px 14px 12px; }
 }
 @media (max-width: 640px) {
-  .choices-name { grid-template-columns: 1fr; }
+  /* Name suggestions stay 3 across under the text; the badge would only eat room. */
+  .choices-name .choice { justify-content: center; text-align: center; padding: 6px; }
+  .choices-name .choice-key { display: none; }
   .console .choices-cards { gap: 6px; padding: 3%; }
   .choices-cards .card-choice { padding: 6px 4px; }
   .choices-cards .card-choice img { max-width: 64px; }
