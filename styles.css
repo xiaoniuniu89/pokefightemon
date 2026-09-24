@@ -282,6 +282,18 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 }
 .title-screen[hidden] { display: none; }
 .title-screen h2 { margin: 6px 0 0; font-size: 2rem; }
+/* Invite questions */
+.gate-form { display: grid; gap: 12px; width: min(100%, 340px); text-align: left; margin-top: 6px; }
+.gate-form label { display: grid; gap: 4px; font-weight: 700; }
+.gate-form input {
+  font: inherit; font-weight: 400; padding: 10px 14px; border-radius: 999px;
+  border: 2px solid var(--border); background: var(--card); color: var(--text);
+}
+.gate-form input:focus { outline: none; border-color: var(--accent); }
+.gate-form .btn { justify-self: center; margin-top: 4px; }
+.gate-error { margin: 0; color: var(--accent); font-weight: 700; text-align: center; }
+.gate-error[hidden] { display: none; }
+.link-btn { font: inherit; background: none; border: none; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; }
 .title-ball { width: 72px; height: 72px; border-width: 4px; }
 .title-ball::after { width: 20px; height: 20px; border-width: 4px; }
 .title-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }

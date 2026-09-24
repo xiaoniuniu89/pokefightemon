@@ -1,21 +1,20 @@
 // Minimal static file server for the Pokédex, plus a tiny JSON save database. No dependencies.
 // Usage: node server.js [port]   (default 8080, or PORT env var)
 //
-// Save API (story mode save slots, stored in data/saves.json):
-//   GET    /api/saves        -> [{ id, updated, state }], newest first
-//   GET    /api/saves/:id    -> { id, updated, state }
+// Save API (story mode save slots, stored in data/saves.json), same as the Vercel one in api/saves.js.
+// Requests need the X-Invite and X-Player headers (see api/_shared.js); saves are kept per player.
+//   GET    /api/saves        -> [{ id, updated, owner, state }] for this player, newest first
+//   GET    /api/saves/:id    -> { id, updated, owner, state }
 //   PUT    /api/saves/:id    body: story state JSON -> { id, updated }
 //   DELETE /api/saves/:id    -> 204
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { SAVE_ID, MAX_BODY, MAX_SAVES, whoIsAsking } = require('./api/_shared');
 
 const ROOT = __dirname;
 const PORT = Number(process.argv[2] || process.env.PORT || 8080);
 const DB_FILE = path.join(ROOT, 'data', 'saves.json');
-const MAX_BODY = 64 * 1024;      // a story state is ~1 KB; anything this big is not a save
-const MAX_SAVES = 50;
-const SAVE_ID = /^[a-z0-9-]{1,40}$/;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -38,10 +37,10 @@ function loadDb() {
   if (db) return db;
   try {
     const parsed = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    db = parsed && typeof parsed.saves === 'object' ? parsed : { saves: {} };
+    db = parsed && typeof parsed.players === 'object' ? parsed : { players: {} };
   } catch (err) {
     if (err.code !== 'ENOENT') console.warn(`Could not read ${DB_FILE}, starting empty: ${err.message}`);
-    db = { saves: {} };
+    db = { players: {} };
   }
   return db;
 }
@@ -80,7 +79,10 @@ function readBody(req) {
 }
 
 async function handleApi(req, res, urlPath) {
-  const saves = loadDb().saves;
+  const who = whoIsAsking(req.headers);
+  if (who.error) return sendJson(res, who.status, { error: who.error });
+  const players = loadDb().players;
+  const saves = players[who.owner] || (players[who.owner] = {});
   const id = urlPath.slice('/api/saves'.length).replace(/^\//, '');
 
   if (!id) {
@@ -107,7 +109,7 @@ async function handleApi(req, res, urlPath) {
       return sendJson(res, 400, { error: 'Save must be a JSON object' });
     }
     const updated = new Date().toISOString();
-    saves[id] = { id, updated, state };
+    saves[id] = { id, updated, owner: who.owner, state };
     await persist();
     return sendJson(res, 200, { id, updated });
   }

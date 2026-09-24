@@ -8,6 +8,10 @@
   const LEGACY_SAVE_KEY = 'pokefightadex-story';  // the old single save, migrated into a slot on load
   const SLOTS_KEY = 'pokefightadex-saves';        // browser fallback when the server has no save API
   const SAVES_API = 'api/saves';
+  const PLAYER_KEY = 'pokefightadex-player';      // { name, invite } once the invite questions are answered
+  // SHA-256 of "pokefightemon:<who made it>:<his kid>", answers lowercased, letters only.
+  // Must match INVITE_HASH in api/_shared.js. Kept as a hash so the answers aren't in the page source.
+  const INVITE_HASH = 'dac1a698916a962b46c633bcc77f8b0aba2bd7fc10a26689c0ce7e98b84072c2';
   const IV = 15;               // flat individual value for every stat, keeps battles predictable
   // Bag items. `heal` restores HP, `ball` is a catch bonus (Poké Ball 1). Chapters hand them out with `give`.
   const ITEMS = {
@@ -63,6 +67,7 @@
   const $ = (sel) => document.querySelector(sel);
   const statusEl = $('#status');
   const titleEl = $('#title-screen');
+  const gateEl = $('#gate');
   const loadBtn = $('#load-btn');
   const newBtn = $('#new-btn');
   const saveListEl = $('#save-list');
@@ -387,8 +392,59 @@
     localStorage.setItem(SLOTS_KEY, JSON.stringify(slots));
   }
 
-  async function api(path, opts) {
-    const r = await fetch(`${SAVES_API}${path}`, { cache: 'no-store', ...opts });
+  // ---------- Player (invite questions) ----------
+  let player = null;   // { name, invite }
+
+  async function sha256(text) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  const answer = (v) => v.toLowerCase().replace(/[^a-z]/g, '');
+
+  function storedPlayer() {
+    try {
+      const p = JSON.parse(localStorage.getItem(PLAYER_KEY));
+      return p && p.invite === INVITE_HASH && p.name ? p : null;
+    } catch { return null; }
+  }
+
+  /** Resolves with the player once the invite questions are answered (asked once per device). */
+  function askInvite() {
+    const known = storedPlayer();
+    if (known) return Promise.resolve(known);
+    const form = $('#gate-form');
+    const errEl = $('#gate-error');
+    gateEl.hidden = false;
+    $('#gate-name').focus();
+    return new Promise((resolve) => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = $('#gate-name').value.trim().replace(/\s+/g, ' ').slice(0, 20);
+        let invite = '';
+        try {
+          invite = await sha256(`pokefightemon:${answer($('#gate-maker').value)}:${answer($('#gate-kid').value)}`);
+        } catch { /* no crypto.subtle (plain http): can't check, so it stays locked */ }
+        if (!name || invite !== INVITE_HASH) {
+          errEl.textContent = !name ? 'Type your name first!' : "Hmm, that's not right. Ask a grown-up!";
+          errEl.hidden = false;
+          return;
+        }
+        const p = { name, invite };
+        try { localStorage.setItem(PLAYER_KEY, JSON.stringify(p)); } catch { /* asked again next visit */ }
+        gateEl.hidden = true;
+        resolve(p);
+      });
+    });
+  }
+
+  function playerHeaders() {
+    return { 'X-Invite': player.invite, 'X-Player': encodeURIComponent(player.name) };
+  }
+
+  async function api(path, opts = {}) {
+    const r = await fetch(`${SAVES_API}${path}`, {
+      cache: 'no-store', ...opts, headers: { ...opts.headers, ...playerHeaders() },
+    });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       throw new Error(err.error || `${r.status} ${r.statusText}`);
@@ -398,7 +454,7 @@
 
   async function initSaves() {
     try {
-      const r = await fetch(SAVES_API, { cache: 'no-store' });
+      const r = await fetch(SAVES_API, { cache: 'no-store', headers: playerHeaders() });
       remoteSaves = r.ok && (r.headers.get('content-type') || '').includes('json');
     } catch {
       remoteSaves = false;
@@ -917,7 +973,7 @@
     lineEl.textContent = `${ch.title} complete! ` +
       (ch.summary ? fill(ch.summary) : `${s.player} and ${monName(s.mon)} (Lv. ${s.mon.level}) press on.`) +
       (finished ? ` You found ${s.shards.length} of ${SHARD_KEYS.length} shards.` : '');
-    const labels = [next ? `Start ${next.title}` : finished ? 'You finished the story!' : 'More chapters coming soon', 'Start a new game', 'Open the Pokédex'];
+    const labels = [next ? `Start ${next.title}` : finished ? 'You finished the story!' : 'More chapters coming soon', 'Save and exit', 'Open the Pokédex'];
     const i = await choose(labels, {
       build: (btn, n) => {
         btn.append(el('span', 'choice-key', String(n + 1)), el('span', 'choice-text', labels[n]));
@@ -929,7 +985,8 @@
       s.applied = null;
       playFrom(chapter().start).catch(fatal);
     } else if (i === 1) {
-      newGame();
+      save();
+      reloadTo();
     } else {
       location.href = 'index.html';
     }
@@ -1996,8 +2053,8 @@
 
   async function renderSaveList() {
     saveWhereEl.textContent = remoteSaves
-      ? 'Stored in the save database on the server (data/saves.json).'
-      : 'Stored in this browser. Run the game with `npm start` to use the save database.';
+      ? `${player.name}'s games, saved online.`
+      : 'Saved in this browser only.';
     let saves;
     try {
       saves = (await listSaves()).filter((x) => isPlayable(x.state));
@@ -2057,7 +2114,15 @@
     } catch { /* storage unavailable */ }
     newBtn.addEventListener('click', newGame);
     loadBtn.addEventListener('click', () => toggleSaveList(saveListEl.hidden));
+    $('#not-me-btn').addEventListener('click', () => {
+      try { localStorage.removeItem(PLAYER_KEY); } catch { /* storage unavailable */ }
+      location.reload();
+    });
 
+    player = await askInvite();
+    $('#player-name').textContent = player.name;
+    $('#player-line').hidden = false;
+    titleEl.hidden = false;
     await initSaves();
     if (flag === 'new') {
       newGame();

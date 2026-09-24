@@ -20,10 +20,31 @@
   <main class="story-page">
     <p id="status" class="status" role="status" hidden></p>
 
-    <!-- Title screen -->
-    <section id="title-screen" class="title-screen">
+    <!-- Invite questions: asked once per device, before the title screen -->
+    <section id="gate" class="title-screen" hidden>
       <span class="pokeball title-ball" aria-hidden="true"></span>
       <h2>Story Mode</h2>
+      <p class="muted">This game is just for friends. Answer three questions to play!</p>
+      <form id="gate-form" class="gate-form">
+        <label>What's your name?
+          <input id="gate-name" maxlength="20" autocomplete="off" required />
+        </label>
+        <label>Who made this game?
+          <input id="gate-maker" autocomplete="off" required />
+        </label>
+        <label>What is his kid's name?
+          <input id="gate-kid" autocomplete="off" required />
+        </label>
+        <p id="gate-error" class="gate-error" role="alert" hidden></p>
+        <button class="btn" type="submit">Let's play!</button>
+      </form>
+    </section>
+
+    <!-- Title screen -->
+    <section id="title-screen" class="title-screen" hidden>
+      <span class="pokeball title-ball" aria-hidden="true"></span>
+      <h2>Story Mode</h2>
+      <p id="player-line" class="muted" hidden>Playing as <strong id="player-name"></strong> · <button id="not-me-btn" class="link-btn" type="button">Not you?</button></p>
       <div class="title-actions">
         <button id="load-btn" class="btn" aria-expanded="false" aria-controls="save-list" hidden>Load game</button>
         <button id="new-btn" class="btn btn-ghost">New game</button>
@@ -61,7 +82,7 @@
         </div>
       </div>
 
-      <!-- Dialogue text on top, choice menu under it (the name form docks right on wide screens) -->
+      <!-- Dialogue text on top, choice menu under it -->
       <div class="console">
         <div id="dialogue" class="dialogue" tabindex="0" aria-live="polite">
           <div id="speaker" class="speaker" hidden></div>

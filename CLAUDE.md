@@ -28,8 +28,11 @@ from `file://` will not work.
 | `music.js` | Story music: chiptune loops per backdrop and battle kind, plus jingles, synthesised with Web Audio (`window.StoryMusic`) |
 | `chapters.js` | Story content only: cast, looks and chapters as scene graphs (`window.STORY_CHAPTERS`) |
 | `STORY_PLAN.md` | Plan for the 10-chapter story: shards, team of 4-6, switching, chapter outlines, build order. Read it before story work |
-| `server.js` | Zero-dependency static file server (MIME map, path-traversal guard) plus the `/api/saves` JSON save database |
-| `data/saves.json` | Story save slots, created on first save. Runtime data: not served statically, safe to delete |
+| `server.js` | Zero-dependency static file server (MIME map, path-traversal guard) plus the `/api/saves` JSON save database, for local dev |
+| `api/saves.js` | Same save API as a Vercel function, stored in Upstash Redis via its REST API (plain `fetch`) |
+| `api/_shared.js` | Invite hash, player-name normalising and limits, used by both save backends |
+| `vercel.json` | Rewrites `/api/saves/:id` to `/api/saves?id=:id` |
+| `data/saves.json` | Local story save slots (`{ players: { <name>: { <id>: save } } }`), created on first save. Gitignored, not served, safe to delete |
 
 ## How `app.js` works
 
@@ -149,9 +152,21 @@ from `file://` will not work.
   with a "trained hard at camp" line. Placeholders `{team}`
   ("Ember, Sparky and Rocky") and `{lead}`; panel `mon: 'lead'`. The in-game
   menu has a Team screen (sprite, name, level, types, Make leader, Rename).
+- **Deploy**: Vercel (static files + `api/saves.js`), Upstash Redis added from
+  the Vercel Storage tab (`UPSTASH_REDIS_REST_*` or `KV_REST_API_*` env vars).
+  GitHub Pages still serves the static site but has no save API.
+- **Invite questions**: before the title screen, `askInvite` asks the kid's
+  name, "Who made this game?" and "What is his kid's name?". Answers are
+  lowercased, letters only, and checked as a SHA-256 hash (`INVITE_HASH` in
+  `story.js` and `api/_shared.js`, must match), so the answers aren't in the
+  source. Stored per device in `localStorage` `pokefightadex-player`; "Not
+  you?" on the title screen clears it. Every save request sends `X-Invite`
+  (the hash) and `X-Player`; both backends reject a wrong hash and keep saves
+  per player (lowercased name, Redis hash `saves:<name>`, max 20 each).
+  A friendly keep-out, not real security.
 - **Saves**: auto-saved on each scene to its slot. `server.js` exposes
   `GET/PUT/DELETE /api/saves[/:id]` backed by `data/saves.json` (in-memory,
-  written via temp file + rename, 64 KB body cap, 50 slots). If the API is
+  written via temp file + rename, 64 KB body cap, 20 slots per player). If the API is
   missing (another static server), slots fall back to `localStorage`
   (`pokefightadex-saves`) and move into the database once it is reachable. The
   title screen has Load game (slot list with delete) and New game; the in-game
@@ -199,8 +214,8 @@ from `file://` will not work.
   the Tide Shard's 2 Potions once per boss scene (`flags['<ch>:<scene>:tide']`,
   so retries don't pile them up). The chapter explains each power
   in text beforehand, so the engine keeps its lines short.
-- **End screen**: `showEnd` shows the chapter summary and Start next / New
-  game / Pokédex. For a chapter whose `end` prompt has `final: true`
+- **End screen**: `showEnd` shows the chapter summary and Start next / Save
+  and exit (back to the title screen) / Pokédex. For a chapter whose `end` prompt has `final: true`
   (`isFinal`, so it also works when a finished save is loaded), `#stage-final`
   covers the stage with the whole team (picture, name, level) and "You found
   N of 7 shards" with the crystals, and the line adds the count.
