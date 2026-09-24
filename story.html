@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokédex — Story</title>
+  <link rel="preconnect" href="https://pokeapi.co" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="logo"><span class="pokeball" aria-hidden="true"></span> Pokédex</h1>
+    <nav class="nav" aria-label="Pages">
+      <a href="index.html">Browse</a>
+      <a href="fight.html">Fight</a>
+      <a href="story.html" aria-current="page">Story</a>
+    </nav>
+  </header>
+
+  <main class="story-page">
+    <p id="status" class="status" role="status" hidden></p>
+
+    <!-- Title screen -->
+    <section id="title-screen" class="title-screen">
+      <span class="pokeball title-ball" aria-hidden="true"></span>
+      <h2>Story Mode</h2>
+      <div class="title-actions">
+        <button id="load-btn" class="btn" aria-expanded="false" aria-controls="save-list" hidden>Load game</button>
+        <button id="new-btn" class="btn btn-ghost">New game</button>
+      </div>
+      <div id="save-list" class="save-list" hidden>
+        <h3>Saved games</h3>
+        <p id="save-where" class="muted"></p>
+        <ul id="save-slots" class="save-slots"></ul>
+      </div>
+    </section>
+
+    <!-- Story view: picture, dialogue box, choices -->
+    <section id="story" class="story" hidden>
+      <div class="story-bar">
+        <div id="chapter-tag" class="chapter-tag"></div>
+        <button id="music-btn" class="menu-btn" aria-pressed="true">♪ Music on</button>
+        <button id="menu-btn" class="menu-btn" aria-haspopup="dialog" aria-controls="story-menu">☰ Menu</button>
+      </div>
+      <div id="stage" class="stage">
+        <div id="stage-cast" class="stage-cast"></div>
+        <div id="stage-mon" class="stage-mon" hidden></div>
+        <!-- Moving weather and light for the backdrop (falling snow, leaves, embers…), from styles.css -->
+        <div class="stage-fx" aria-hidden="true"></div>
+        <!-- Final end screen: the whole team and the shards found -->
+        <div id="stage-final" class="stage-final" hidden></div>
+        <div id="battle" class="battle" hidden>
+          <div class="combatant foe">
+            <div class="hud" id="foe-hud"></div>
+            <div class="platform"><img id="foe-sprite" alt="" /><span id="foe-ball" class="pokeball battle-ball" aria-hidden="true" hidden></span></div>
+          </div>
+          <div class="combatant ally">
+            <div class="platform"><img id="ally-sprite" alt="" /></div>
+            <div class="hud" id="ally-hud"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dialogue text on top, choice menu under it (the name form docks right on wide screens) -->
+      <div class="console">
+        <div id="dialogue" class="dialogue" tabindex="0" aria-live="polite">
+          <div id="speaker" class="speaker" hidden></div>
+          <p id="line" class="line"></p>
+          <span id="more" class="more" aria-hidden="true" hidden>▼</span>
+        </div>
+
+        <div id="choices" class="choices"></div>
+      </div>
+
+      <!-- In-game menu (Esc) -->
+      <div id="story-menu" class="story-menu" role="dialog" aria-modal="true" aria-labelledby="story-menu-title" hidden>
+        <div id="menu-main" class="story-menu-box">
+          <h2 id="story-menu-title">Menu</h2>
+          <p id="menu-note" class="muted">Progress saves automatically at every scene.</p>
+          <button id="resume-btn" class="btn">Resume</button>
+          <button id="team-btn" class="btn btn-ghost">Team</button>
+          <button id="copy-btn" class="btn btn-ghost">Save a copy</button>
+          <button id="menu-load-btn" class="btn btn-ghost">Load game</button>
+          <button id="menu-new-btn" class="btn btn-ghost">New game</button>
+        </div>
+        <!-- Team screen: sprite, name, level and types; change the leader, rename; shards held -->
+        <div id="team-box" class="story-menu-box team-box" hidden>
+          <h2>Your team</h2>
+          <p id="team-note" class="muted"></p>
+          <ul id="team-list" class="team-list"></ul>
+          <!-- Shards held, as coloured crystals with names -->
+          <div id="team-shards" class="team-shards" hidden></div>
+          <button id="team-back-btn" class="btn">Back</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Data from <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a>.
+    Trainer sprites from <a href="https://play.pokemonshowdown.com" target="_blank" rel="noopener">Pokémon Showdown</a>.
+  </footer>
+
+  <script src="music.js"></script>
+  <script src="chapters.js"></script>
+  <script src="story.js"></script>
+</body>
+</html>

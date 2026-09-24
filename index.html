@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokédex</title>
+  <link rel="preconnect" href="https://pokeapi.co" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="logo"><span class="pokeball" aria-hidden="true"></span> Pokédex</h1>
+    <div class="controls">
+      <label class="search">
+        <span class="visually-hidden">Search Pokémon</span>
+        <input id="search" type="search" placeholder="Search by name or number…" autocomplete="off" autofocus />
+      </label>
+      <select id="type-filter" aria-label="Filter by type">
+        <option value="">All types</option>
+      </select>
+      <select id="gen-filter" aria-label="Filter by generation">
+        <option value="">All generations</option>
+      </select>
+    </div>
+    <nav class="nav" aria-label="Pages">
+      <a href="index.html" aria-current="page">Browse</a>
+      <a href="fight.html">Fight</a>
+      <a href="story.html">Story</a>
+    </nav>
+  </header>
+
+  <main>
+    <p id="status" class="status" role="status">Loading Pokédex…</p>
+    <section id="grid" class="grid" aria-live="polite"></section>
+    <div class="load-more-wrap">
+      <button id="load-more" class="btn" hidden>Load more</button>
+    </div>
+  </main>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <article class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal-close" data-close aria-label="Close">&times;</button>
+      <div id="modal-content"></div>
+    </article>
+  </div>
+
+  <footer class="footer">
+    Data from <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

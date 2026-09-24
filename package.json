@@ -1,0 +1,10 @@
+{
+  "name": "pokedex",
+  "version": "1.0.0",
+  "description": "Searchable Pokédex built on PokéAPI",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT"
+}

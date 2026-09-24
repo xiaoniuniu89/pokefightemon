@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokédex — Fight</title>
+  <link rel="preconnect" href="https://pokeapi.co" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="logo"><span class="pokeball" aria-hidden="true"></span> Pokédex</h1>
+    <nav class="nav" aria-label="Pages">
+      <a href="index.html">Browse</a>
+      <a href="fight.html" aria-current="page">Fight</a>
+      <a href="story.html">Story</a>
+    </nav>
+  </header>
+
+  <main class="arena-page">
+    <p id="status" class="status" role="status">Choosing fighters…</p>
+
+    <p id="commentary" class="commentary" aria-live="polite" hidden></p>
+
+    <section class="arena">
+      <article class="fighter" id="fighter-a"></article>
+      <div class="vs" aria-hidden="true">VS</div>
+      <article class="fighter" id="fighter-b"></article>
+    </section>
+
+    <div class="arena-actions">
+      <button id="fight-btn" class="btn" disabled>Fight!</button>
+      <button id="next-btn" class="btn btn-secondary" hidden>Next fight</button>
+    </div>
+
+    <section id="result" class="result" hidden>
+      <h2 id="result-title"></h2>
+      <p id="result-summary"></p>
+      <details>
+        <summary>Battle log</summary>
+        <ol id="battle-log"></ol>
+      </details>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Data from <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a>
+  </footer>
+
+  <script src="fight.js"></script>
+</body>
+</html>
