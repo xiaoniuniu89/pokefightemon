@@ -1,5 +1,6 @@
 /* Story music: little chiptune loops made with the Web Audio API, so there are no audio files.
- * story.js calls StoryMusic.play(themeOrBackdrop), .stop() and .jingle(name). Browsers only
+ * story.js calls StoryMusic.play(themeOrBackdrop), .stop(), .jingle(name) and .cry(id, name)
+ * (a Pokémon's cry, the one sound that is a file). Browsers only
  * allow sound after a click or key press, so nothing plays until the player has pressed something.
  *
  * A theme: bpm, root (MIDI note of degree 1), scale, lead wave, chords (one scale degree per bar),
@@ -276,6 +277,43 @@
     }
   }
 
+  // ---------- Cries ----------
+  // PokéAPI's cries are .ogg, which some Safari versions can't play, so those get Showdown's .mp3.
+  const CRY_OGG = 'https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest';
+  const CRY_MP3 = 'https://play.pokemonshowdown.com/audio/cries';
+  const CRY_VOLUME = 0.5;
+  const canOgg = !!document.createElement('audio').canPlayType('audio/ogg; codecs="vorbis"');
+
+  /** A Pokémon's cry, by species id and name. `faint` plays it slower and lower, like the games.
+   * The music dips under it. Muted with the music, and silent until the player has pressed something. */
+  function cry(id, name, { faint = false } = {}) {
+    if (muted || !ctx || ctx.state !== 'running') return;
+    const mp3 = `${CRY_MP3}/${String(name).toLowerCase().replace(/[^a-z0-9]/g, '')}.mp3`;
+    const list = canOgg ? [`${CRY_OGG}/${id}.ogg`, mp3] : [mp3];
+    const audio = new Audio();
+    audio.volume = CRY_VOLUME;
+    if (faint) {
+      audio.preservesPitch = false;
+      audio.playbackRate = 0.75;
+    }
+    let i = 0;
+    audio.onerror = () => {
+      i += 1;
+      if (i < list.length) { audio.src = list[i]; audio.play().catch(() => {}); }
+    };
+    audio.src = list[0];
+    audio.play().catch(() => {});
+    if (current) {
+      const g = current.out.gain;
+      const t = ctx.currentTime;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(0.3, t + 0.08);
+      g.setValueAtTime(0.3, t + 1.4);
+      g.linearRampToValueAtTime(1, t + 2);
+    }
+  }
+
   function setMuted(off) {
     muted = off;
     try { localStorage.setItem(STORE_KEY, off ? 'off' : 'on'); } catch { /* storage unavailable */ }
@@ -303,5 +341,5 @@
     else if (!muted) ctx.resume();
   });
 
-  window.StoryMusic = { play, stop, jingle, setMuted, get muted() { return muted; } };
+  window.StoryMusic = { play, stop, jingle, cry, setMuted, get muted() { return muted; } };
 })();

@@ -88,6 +88,9 @@
           <div id="speaker" class="speaker" hidden></div>
           <p id="line" class="line"></p>
           <span id="more" class="more" aria-hidden="true" hidden>▼</span>
+          <!-- Battle turn timer: seconds left to pick a move -->
+          <span id="turn-timer" class="turn-timer" role="timer" hidden></span>
+          <span id="turn-bar" class="turn-bar" aria-hidden="true" hidden></span>
         </div>
 
         <div id="choices" class="choices"></div>
@@ -116,11 +119,6 @@
       </div>
     </section>
   </main>
-
-  <footer class="footer">
-    Data from <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a>.
-    Trainer sprites from <a href="https://play.pokemonshowdown.com" target="_blank" rel="noopener">Pokémon Showdown</a>.
-  </footer>
 
   <script src="music.js"></script>
   <script src="chapters.js"></script>

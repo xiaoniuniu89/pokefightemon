@@ -108,6 +108,11 @@ from `file://` will not work.
   melody string of scale degrees). Sound starts on the first click or key
   (browser rule), pauses when the tab is hidden, and the ♪ button mutes it
   (`localStorage` `pokefightadex-music`). story.js works without music.js.
+  Cries: `music.cry(id, name, { faint })` plays a Pokémon's cry (PokéAPI
+  `.ogg` by id, Showdown `.mp3` by species name where Ogg can't play, or on
+  error) and dips the music under it. It plays on send-out, wild/foe appearing,
+  faint (slower and lower), starter preview and evolution. It is muted with the
+  music.
 - **Evolution**: at story moments, not levels. A scene's `evolve` ('starter',
   'team' or a function) runs after its panels (`evolveScene`, once per scene via
   `flags['evolve:<ch>:<scene>']`): one stage along the PokéAPI evolution chain
@@ -181,7 +186,11 @@ from `file://` will not work.
   picks a move, the Bag or Team each turn (bottom row of the move menu is
   Bag, Team and, in wild battles only, Run: `.choices-battle`, `.no-run`
   otherwise; items use your turn, see `useItem`); the rival AI scores moves by expected
-  damage. `foeMoveLevel` caps each foe's learnset. A damaging move's stat
+  damage. Turn clock: `playerAction` starts a `TURN_MS` (6 s) clock, shown as a pill
+  and bar on the text box; opening the Bag adds `BAG_BONUS_MS` (4 s) once per turn.
+  It only counts while a menu waits (paused with the game menu open or the tab
+  hidden). On time up `choose` rejects with `TIME_UP` and a random usable move is
+  used. Forced picks after a faint are not timed. `foeMoveLevel` caps each foe's learnset. A damaging move's stat
   change is a side effect: it happens with the move's `meta.stat_chance`
   (`statChance`), and `damage-raise` moves (Metal Claw, Flame Charge, Close
   Combat) change the user's stats (`statSelf`). Status moves always apply.

@@ -539,6 +539,20 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
   font-weight: 800; font-size: .85rem; padding: 3px 12px; border-radius: 999px; border: 2px solid #1c1e21;
 }
 .line { margin: 6px 0 0; font-size: 1.08rem; line-height: 1.5; min-height: 3em; }
+/* Battle turn timer: a pill on the text box's top edge and a bar along its bottom */
+.turn-timer {
+  position: absolute; top: -16px; right: 16px; background: #2e86de; color: #fff;
+  font-weight: 800; font-size: .85rem; padding: 3px 12px; border-radius: 999px; border: 2px solid #1c1e21;
+  font-variant-numeric: tabular-nums;
+}
+.turn-timer.low, .turn-bar.low { background: var(--accent); }
+.turn-timer.bonus { animation: timer-pop .5s ease; }
+@keyframes timer-pop { 40% { transform: scale(1.3); } }
+.turn-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: #2e86de;
+  transform-origin: left; transition: transform .1s linear;
+}
+.turn-timer[hidden], .turn-bar[hidden] { display: none; }
 .more { position: absolute; right: 18px; bottom: 8px; color: var(--accent); animation: bob .8s ease-in-out infinite; }
 @keyframes bob { 50% { transform: translateY(4px); } }
 
@@ -702,7 +716,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 @media (prefers-reduced-motion: reduce) {
   .stage.shake, .platform img.enter, .platform img.lunge-ally, .platform img.lunge-foe,
   .platform img.hurt, .platform img.buff, .platform img.debuff, .stage-mon, .more,
-  .battle-ball.ball-drop, .battle-ball.ball-wobble, .battle-ball.ball-lock { animation: none; }
+  .battle-ball.ball-drop, .battle-ball.ball-wobble, .battle-ball.ball-lock, .turn-timer.bonus { animation: none; }
+  .turn-bar { transition: none; }
 }
 
 /* Team and switching */

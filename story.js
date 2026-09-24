@@ -99,11 +99,13 @@
   const teamListEl = $('#team-list');
   const teamShardsEl = $('#team-shards');
   const finalEl = $('#stage-final');
+  const turnTimerEl = $('#turn-timer');
+  const turnBarEl = $('#turn-bar');
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // ---------- Music (music.js; the game still works without it) ----------
-  const music = window.StoryMusic || { play() {}, stop() {}, jingle() {}, setMuted() {}, muted: true };
+  const music = window.StoryMusic || { play() {}, stop() {}, jingle() {}, cry() {}, setMuted() {}, muted: true };
   const musicBtn = $('#music-btn');
   function showMusicState() {
     musicBtn.textContent = music.muted ? '♪ Music off' : '♪ Music on';
@@ -377,6 +379,7 @@
     monEl.querySelector('img').src = artUrl(next.id);
     monEl.classList.remove('evolving');
     flash(monEl, 'evolved', 900);
+    music.cry(next.id, next.species);
     await say('narrator', `Congratulations! ${before} evolved into ${next.species}!`);
   }
 
@@ -651,11 +654,18 @@
     choicesEl.className = 'choices';
   }
 
-  /** Render buttons and resolve with the index of the one clicked. */
+  /** Render buttons and resolve with the index of the one clicked.
+   * While a battle turn clock runs, it rejects with TIME_UP if the time runs out first. */
   function choose(labels, { cls = '', build } = {}) {
     clearChoices();
     if (cls) choicesEl.classList.add(...cls.split(/\s+/).filter(Boolean));
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      if (clock) {
+        clock.cancel = () => {
+          clearChoices();
+          reject(TIME_UP);
+        };
+      }
       labels.forEach((label, i) => {
         const btn = el('button', 'choice');
         if (build) build(btn, i);
@@ -663,6 +673,7 @@
           btn.append(el('span', 'choice-key', String(i + 1)), el('span', 'choice-text', fill(label)));
         }
         btn.addEventListener('click', () => {
+          if (clock) clock.cancel = null;
           clearChoices();
           resolve(i);
         });
@@ -670,6 +681,63 @@
       });
       choicesEl.querySelector('button')?.focus();
     });
+  }
+
+  // ---------- Battle turn clock ----------
+  // You have TURN_MS to pick a move; opening the Bag adds BAG_BONUS_MS once per turn.
+  // It only counts down while a menu is waiting, and pauses while the game menu is open
+  // or the tab is hidden. When time runs out a random move is used.
+  const TURN_MS = 6000;
+  const BAG_BONUS_MS = 4000;
+  const TIME_UP = Symbol('time up');
+  let clock = null;            // { left, total, bonus, cancel, timer } during a battle turn
+
+  function drawClock() {
+    const secs = Math.ceil(clock.left / 1000);
+    turnTimerEl.textContent = `⏱ ${secs}`;
+    turnTimerEl.setAttribute('aria-label', `${secs} seconds left`);
+    turnTimerEl.classList.toggle('low', clock.left <= 3000);
+    turnBarEl.classList.toggle('low', clock.left <= 3000);
+    turnBarEl.style.transform = `scaleX(${clock.left / clock.total})`;
+  }
+
+  function startClock() {
+    stopClock();
+    clock = { left: TURN_MS, total: TURN_MS, bonus: false, cancel: null };
+    const TICK = 100;
+    clock.timer = setInterval(() => {
+      if (!clock.cancel || !menuEl.hidden || document.hidden) return;
+      clock.left = Math.max(0, clock.left - TICK);
+      drawClock();
+      if (clock.left === 0) {
+        const cancel = clock.cancel;
+        clock.cancel = null;
+        cancel();
+      }
+    }, TICK);
+    drawClock();
+    turnTimerEl.hidden = false;
+    turnBarEl.hidden = false;
+  }
+
+  function stopClock() {
+    if (!clock) return;
+    clearInterval(clock.timer);
+    clock = null;
+    turnTimerEl.hidden = true;
+    turnBarEl.hidden = true;
+  }
+
+  /** Opening the Bag buys a little more time, once per turn. */
+  function bagBonus() {
+    if (!clock || clock.bonus) return;
+    clock.bonus = true;
+    clock.left += BAG_BONUS_MS;
+    clock.total = Math.max(clock.total, clock.left);
+    drawClock();
+    turnTimerEl.classList.remove('bonus');
+    void turnTimerEl.offsetWidth; // restart the pop animation
+    turnTimerEl.classList.add('bonus');
   }
 
   // ---------- Stage (the "picture") ----------
@@ -909,6 +977,7 @@
       });
       const pick = options[i];
       renderStage({ bg: scene.bg, cast: ['oak'], who: 'oak', mon: pick.id });
+      music.cry(pick.id, pick.species);
       await show('oak', `So! You want ${pick.species}, the ${title(pick.types[0])}-type Pokémon?`);
       if ((await choose(['Yes, this one!', 'Let me look again'])) === 0) {
         const rival = rivalPick(pick, options.filter((o) => o !== pick));
@@ -1282,6 +1351,24 @@
    * { kind: 'ball', key }, { kind: 'switch', slot } or { kind: 'run' }. The bottom row is Bag, Team
    * and, in wild battles only, Run (it can't be used against trainers or a boss, so it isn't shown). */
   async function playerAction(bt) {
+    startClock();
+    try {
+      return await pickAction(bt);
+    } catch (err) {
+      if (err !== TIME_UP) throw err;
+      stopClock();
+      const ally = bt.ally.c;
+      const usable = ally.moves.filter((m) => m.pp > 0);
+      const move = usable.length ? usable[Math.floor(Math.random() * usable.length)] : STRUGGLE;
+      await say(null, `Time's up! ${ally.label} picked a move all by itself!`, 1300);
+      return { kind: 'move', move };
+    } finally {
+      stopClock();
+    }
+  }
+
+  /** The move menu, with Bag and Team submenus, until you pick something that uses your turn. */
+  async function pickAction(bt) {
     const ally = bt.ally.c;
     const foe = bt.foe.c;
     for (;;) {
@@ -1326,6 +1413,7 @@
       });
       const pick = items[i];
       if (pick.kind === 'bag') {
+        bagBonus();
         const item = await bagMenu(bt);
         if (item) return item;
         continue;
@@ -1693,6 +1781,9 @@
 
   const resetStages = (c) => { for (const k of Object.keys(c.stages)) c.stages[k] = 0; };
 
+  /** A combatant's cry (`p.species.name` is the species, without a form suffix like "-normal"). */
+  const cryOf = (c, faint = false) => music.cry(c.p.id, c.p.species.name, { faint });
+
   /** Send one of your Pokémon out: "Go! Sparky!", then its entry boosts. */
   async function sendAlly(bt, slot) {
     const c = await buildSlot(bt, slot, true);
@@ -1700,6 +1791,7 @@
     slot.battled = true;
     showCombatant(true, c, bt.ally.slots);
     flash(allySprite, 'enter', 500);
+    cryOf(c);
     await say(null, `Go! ${c.label}!`, 1000);
     await applyEntry(bt, true);
   }
@@ -1713,6 +1805,7 @@
     if (announce) {
       showCombatant(false, c, bt.foe.balls);
       flash(foeSprite, 'enter', 500);
+      cryOf(c);
       await say(null, bt.wild ? `Another wild ${c.species} appeared!` : `${bt.trainer} sent out ${c.species}!`, 1200);
     }
     await applyEntry(bt, false);
@@ -1733,6 +1826,7 @@
     if (bt.foe.c.hp <= 0) {
       bt.foe.slot.fainted = true;
       foeSprite.classList.add('faint');
+      cryOf(bt.foe.c, true);
       bt.update();
       await say(null, `${bt.foe.c.label} fainted!`, 1200);
       const next = bt.foe.slots.find((sl) => !sl.fainted);
@@ -1743,6 +1837,7 @@
       bt.ally.slot.fainted = true;
       resetStages(bt.ally.c);
       allySprite.classList.add('faint');
+      cryOf(bt.ally.c, true);
       bt.update();
       await say(null, `${bt.ally.c.label} fainted!`, 1200);
       const left = bt.ally.slots.filter((sl) => !sl.fainted);
@@ -1770,6 +1865,7 @@
       setStatus('');
 
       enterBattle(bt);
+      cryOf(bt.foe.c);
       if (bt.boss && wild) {
         await say(null, `${bt.foe.c.species} appeared! This is the big one!`, 1400);
       } else if (wild) {
